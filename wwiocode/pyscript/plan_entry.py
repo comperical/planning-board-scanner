@@ -16,8 +16,13 @@ class ProcessDocTool:
 
     def run_op(self, argmap):
 
-        # Process PDF/etc files in working directory into text,
-        # Pull them into DB
+
+        docinfo = UTIL.load_doc_info()
+
+        #print(docinfo)
+
+        UTIL.insert_doc_info()
+
 
 class BasicTool:
 
