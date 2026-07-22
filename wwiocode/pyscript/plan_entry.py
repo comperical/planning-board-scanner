@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/opt/rawdata/pyworld/KitchenSink/bin/python3
 
 import os
 import sys
@@ -11,6 +11,26 @@ sys.path.append("/opt/userdata/crm/src/python/opsutil")
 import ArgMap
 import CodeSetup as SETUP
 
+
+
+class ExtractDataTool:
+
+    def run_op(self, argmap):
+
+        def gendata():
+
+            for basedir, _, fnames in os.walk(UTIL.FORMAT_DOC_DIR):
+
+                for f in fnames:
+                    print(f)
+                    yield UTIL.FORMAT_DOC_DIR / f
+
+
+        for formdoc in gendata():
+            UTIL.extract_text_info(formdoc)
+
+        #datalist = list(gendata())
+        #UTIL.extract_text_info(docpath)
 
 class ProcessDocTool:
 
