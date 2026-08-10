@@ -16,7 +16,7 @@ import CodeSetup as SETUP
 class ExtractDataTool:
 
     def run_op(self, argmap):
-
+        
         def gendata():
 
             for basedir, _, fnames in os.walk(UTIL.FORMAT_DOC_DIR):
