@@ -54,6 +54,70 @@ class BasicTool:
         assert os.path.exists(UTIL.WORK_DIR)
 
 
+# ---------------------------------------------------------------------------
+# Single-file PDF analysis tools.
+#
+# These tools take NO input/output path arguments - the paths are hardcoded
+# canonical locations inside working/, so there is no path for a caller to
+# inject:
+#   - input  : working/TARGET.pdf     (copy/symlink the PDF you want here)
+#   - output : working/OUTPUT.txt     (text or JSON-as-text, depending on tool)
+#   - output : working/OUTPUT_PAGES/  (PdfRenderPages only, one PNG per page)
+#
+# Example:
+#   cp working/dover_nh/2026.09.22_PlanningBoard.Materials.pdf working/TARGET.pdf
+#   plan_entry.py PdfExtractText
+#   cat working/OUTPUT.txt
+# ---------------------------------------------------------------------------
+
+class PdfExtractTextTool:
+    """Extract the full text of working/TARGET.pdf (OCR fallback per scanned
+    page) to working/OUTPUT.txt."""
+
+    def run_op(self, argmap):
+        UTIL.extract_pdf_text()
+
+
+class PdfInfoTool:
+    """Write a JSON summary of working/TARGET.pdf - metadata, page count,
+    file size, and per-page stats (dimensions, text length, whether it looks
+    scanned) - to working/OUTPUT.txt."""
+
+    def run_op(self, argmap):
+        UTIL.extract_pdf_info()
+
+
+class PdfKeywordScanTool:
+    """Scan working/TARGET.pdf's text for development-project keywords (site
+    plan, subdivision, residential, commercial, ...) and write JSON hits with
+    page numbers and snippets to working/OUTPUT.txt. Pass keywords=...
+    (comma-separated) to override the default list.
+
+    Args: [keywords=a,b,c]
+    """
+
+    def run_op(self, argmap):
+        keywords = argmap.getStr("keywords", UTIL.DEFAULT_SCAN_KEYWORDS)
+
+        UTIL.scan_pdf_keywords(keywords)
+
+
+class PdfRenderPagesTool:
+    """Render pages of working/TARGET.pdf to PNG images (one file per page)
+    inside working/OUTPUT_PAGES/. With no pages= given, renders the whole
+    document up to a safety cap (see MAX_RENDER_PAGES_DEFAULT); pass an
+    explicit page range to go beyond that on purpose.
+
+    Args: [dpi=150]  [pages=1-6,10]
+    """
+
+    def run_op(self, argmap):
+        dpi = argmap.getInt("dpi", 150)
+        pages = argmap.getStr("pages", "")
+
+        UTIL.render_pdf_pages(dpi, pages)
+
+
 if __name__ == '__main__':
 
     SETUP.configure(globals())
