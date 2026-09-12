@@ -3,30 +3,36 @@ import os
 import re
 import sys
 import json
+import urllib.parse
 
 sys.path.append("/opt/userdata/busicode/clientscript")
 
 import client_util as CSUTIL
 import fitz  # PyMuPDF
+import requests
 
 from pathlib import Path
 
-WORK_DIR = Path(__file__).parent.parent.parent / "working"
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+WORK_DIR = PROJECT_ROOT / "working"
 
 FORMAT_DOC_DIR = WORK_DIR / "formatted"
 TEXT_DIR = WORK_DIR / "text"
 
 
 # ---------------------------------------------------------------------------
-# Strict path access control
+# Path access control
 #
-# The single-file PDF analysis tools below do not accept any input/output
-# path from the caller. They are hardcoded to a single canonical input file
-# and a single canonical output file inside WORK_DIR, so there is no path to
-# inject: to analyze a PDF, copy/symlink it to TARGET_PDF first.
+# The single-file PDF analysis tools below take the input PDF as a caller-
+# supplied path argument (pdf=...), but it is checked - before any work
+# happens - against two rules: it must start with "working/" and it must
+# already exist as a file. This keeps callers confined to the gitignored
+# scratch area without pinning them to one hardcoded filename.
+#
+# Output still goes to a single canonical file/dir inside WORK_DIR, so there
+# is no output path to inject.
 # ---------------------------------------------------------------------------
 
-TARGET_PDF = WORK_DIR / "TARGET.pdf"
 OUTPUT_PATH = WORK_DIR / "OUTPUT.txt"
 
 # The page-render tool can't fit its output into a single text file (it
@@ -34,12 +40,50 @@ OUTPUT_PATH = WORK_DIR / "OUTPUT.txt"
 OUTPUT_PAGES_DIR = WORK_DIR / "OUTPUT_PAGES"
 
 
-def get_target_pdf():
-    """Return the canonical input PDF path, asserting it actually exists there."""
+def _resolve_under_workdir(argval, argname):
+    """Shared core check for any caller-supplied path argument: it must be
+    given, must start with "working/", and must not escape WORK_DIR (e.g. via
+    ".."). Existence/type is the caller's job to check next. Returns the
+    resolved Path."""
 
-    assert TARGET_PDF.exists(), f"Expected the input PDF at {TARGET_PDF} - copy/symlink the file you want to analyze there first"
-    assert TARGET_PDF.is_file(), f"{TARGET_PDF} is not a file"
-    return TARGET_PDF
+    assert argval, f"{argname}=<path> is required (must start with 'working/')"
+    assert argval.startswith("working/"), f"{argname} path must start with 'working/', got {argval!r}"
+
+    candidate = (PROJECT_ROOT / argval).resolve()
+    workdir_resolved = WORK_DIR.resolve()
+
+    assert candidate == workdir_resolved or workdir_resolved in candidate.parents, \
+        f"{argname} path {argval!r} escapes the working/ directory"
+
+    return candidate
+
+
+def resolve_input_pdf(pdf_arg):
+    """Validate and resolve a caller-supplied pdf= path argument. Enforces,
+    before any work is done: the argument must be given, must start with
+    "working/", must not escape WORK_DIR (e.g. via ".."), and must already
+    exist as a file."""
+
+    candidate = _resolve_under_workdir(pdf_arg, "pdf")
+
+    assert candidate.exists(), f"No such file: {candidate}"
+    assert candidate.is_file(), f"{candidate} is not a file"
+
+    return candidate
+
+
+def resolve_dest_dir(dest_arg):
+    """Validate and resolve a caller-supplied dest= directory argument (used
+    by FetchUrl). Enforces, before any work is done: the argument must be
+    given, must start with "working/", must not escape WORK_DIR, and must
+    already exist as a directory."""
+
+    candidate = _resolve_under_workdir(dest_arg, "dest")
+
+    assert candidate.exists(), f"No such directory: {candidate}"
+    assert candidate.is_dir(), f"{candidate} is not a directory"
+
+    return candidate
 
 
 def get_output_path():
@@ -137,8 +181,9 @@ def extract_text_info(mainpath):
 
 
 # ---------------------------------------------------------------------------
-# Single-file PDF analysis tools. Each one reads the hardcoded TARGET_PDF and
-# writes to the hardcoded OUTPUT_PATH (or OUTPUT_PAGES_DIR) - see plan_entry.py.
+# Single-file PDF analysis tools. Each one reads a caller-supplied, validated
+# pdf= path (see resolve_input_pdf) and writes to the hardcoded OUTPUT_PATH
+# (or OUTPUT_PAGES_DIR) - see plan_entry.py.
 # ---------------------------------------------------------------------------
 
 # Terms relevant to spotting residential/commercial development projects in
@@ -152,10 +197,63 @@ DEFAULT_SCAN_KEYWORDS = ",".join([
 ])
 
 
-def extract_pdf_text():
-    """Extract the full text of TARGET_PDF (with OCR fallback per page) to OUTPUT_PATH."""
+FETCH_USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
 
-    inpath = get_target_pdf()
+
+def _filename_from_response(target, resp):
+    """Pick a filename for a fetched URL: prefer the Content-Disposition
+    header's filename (what CivicPlus's Agenda Center sends, e.g.
+    'inline;filename=09092026.pdf'), falling back to the last segment of the
+    URL's path."""
+
+    cdisp = resp.headers.get("content-disposition", "")
+    match = re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)"?', cdisp, re.IGNORECASE)
+    if match:
+        return Path(match.group(1)).name
+
+    filename = Path(urllib.parse.urlparse(target).path).name
+    assert filename, f"Could not determine a filename from URL: {target}"
+    return filename
+
+
+def fetch_url(target, dest_arg=""):
+    """Download `target` (a URL) via requests, using a normal desktop-browser
+    User-Agent - a curl replacement that doesn't need a permission prompt.
+
+    With no dest_arg, writes straight to WORK_DIR/TARGET.pdf (overwriting
+    whatever was there). With dest_arg given, it must resolve (per
+    resolve_dest_dir) to an existing directory under working/, and the file
+    is written there under its original filename - taken from the response's
+    Content-Disposition header if the server sends one (as CivicPlus's
+    Agenda Center does), otherwise from the last segment of the URL path."""
+
+    assert target, "target=<url> is required"
+
+    # Validate dest_arg before making any network request, so a bad dest=
+    # fails fast instead of after burning a download.
+    destdir = resolve_dest_dir(dest_arg) if dest_arg else None
+
+    resp = requests.get(target, headers={"User-Agent": FETCH_USER_AGENT}, timeout=30)
+    resp.raise_for_status()
+
+    if destdir is not None:
+        outpath = destdir / _filename_from_response(target, resp)
+    else:
+        WORK_DIR.mkdir(parents=True, exist_ok=True)
+        outpath = WORK_DIR / "TARGET.pdf"
+
+    with open(outpath, "wb") as fh:
+        fh.write(resp.content)
+
+    print(f"Fetched {target} -> {outpath} ({len(resp.content)} bytes, "
+          f"content-type: {resp.headers.get('content-type', '?')})")
+
+
+def extract_pdf_text(pdf_arg):
+    """Extract the full text of the given PDF (with OCR fallback per page) to OUTPUT_PATH."""
+
+    inpath = resolve_input_pdf(pdf_arg)
     outpath = get_output_path()
 
     fulltext = "\n\n".join(_gen_page_text(inpath))
@@ -166,12 +264,12 @@ def extract_pdf_text():
     print(f"Extracted text for {inpath} -> {outpath} ({len(fulltext)} chars)")
 
 
-def extract_pdf_info():
-    """Write a JSON summary of TARGET_PDF to OUTPUT_PATH: metadata, page
+def extract_pdf_info(pdf_arg):
+    """Write a JSON summary of the given PDF to OUTPUT_PATH: metadata, page
     count/size, and per-page stats (dimensions, text length, whether OCR
     would be needed)."""
 
-    inpath = get_target_pdf()
+    inpath = resolve_input_pdf(pdf_arg)
     outpath = get_output_path()
 
     with fitz.open(inpath) as doc:
@@ -201,13 +299,13 @@ def extract_pdf_info():
     print(f"Wrote PDF info for {inpath} -> {outpath} ({info['page_count']} pages)")
 
 
-def scan_pdf_keywords(keywords_str, *, context_chars=80):
-    """Scan TARGET_PDF's text (page by page, no OCR - keyword scans are meant
-    to be fast) for the given comma-separated keywords, and write a JSON list
-    of hits (page, keyword, count, and a short surrounding snippet) to
-    OUTPUT_PATH."""
+def scan_pdf_keywords(keywords_str, pdf_arg, *, context_chars=80):
+    """Scan the given PDF's text (page by page, no OCR - keyword scans are
+    meant to be fast) for the given comma-separated keywords, and write a
+    JSON list of hits (page, keyword, count, and a short surrounding
+    snippet) to OUTPUT_PATH."""
 
-    inpath = get_target_pdf()
+    inpath = resolve_input_pdf(pdf_arg)
     outpath = get_output_path()
 
     keywords = [kw.strip() for kw in keywords_str.split(",") if kw.strip()]
@@ -276,14 +374,14 @@ def _parse_page_spec(pages_str, page_count):
     return sorted(result)
 
 
-def render_pdf_pages(dpi, pages_str):
-    """Render pages of TARGET_PDF to PNG files inside OUTPUT_PAGES_DIR (one
+def render_pdf_pages(dpi, pages_str, pdf_arg):
+    """Render pages of the given PDF to PNG files inside OUTPUT_PAGES_DIR (one
     file per page, page_NNN.png). With no explicit pages_str, renders the
     whole document up to MAX_RENDER_PAGES_DEFAULT pages, to avoid an
     accidental huge/unbounded write - pass an explicit pages_str to go
     further."""
 
-    inpath = get_target_pdf()
+    inpath = resolve_input_pdf(pdf_arg)
     outdir = get_output_pages_dir()
 
     with fitz.open(inpath) as doc:

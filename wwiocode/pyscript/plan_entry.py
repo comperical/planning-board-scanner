@@ -57,65 +57,96 @@ class BasicTool:
 # ---------------------------------------------------------------------------
 # Single-file PDF analysis tools.
 #
-# These tools take NO input/output path arguments - the paths are hardcoded
-# canonical locations inside working/, so there is no path for a caller to
+# Each tool takes the input PDF as pdf=<path>, checked - before any work
+# happens - against two rules: it must start with "working/" and it must
+# already exist as a file. Output still goes to a hardcoded canonical
+# location inside working/, so there is no output path for a caller to
 # inject:
-#   - input  : working/TARGET.pdf     (copy/symlink the PDF you want here)
+#   - input  : pdf=working/<...>.pdf  (must start with "working/" and exist)
 #   - output : working/OUTPUT.txt     (text or JSON-as-text, depending on tool)
 #   - output : working/OUTPUT_PAGES/  (PdfRenderPages only, one PNG per page)
 #
 # Example:
-#   cp working/dover_nh/2026.09.22_PlanningBoard.Materials.pdf working/TARGET.pdf
-#   plan_entry.py PdfExtractText
+#   plan_entry.py FetchUrl target=https://example.town.gov/2026.09.22_Materials.pdf
+#   plan_entry.py PdfExtractText pdf=working/TARGET.pdf
 #   cat working/OUTPUT.txt
 # ---------------------------------------------------------------------------
 
-class PdfExtractTextTool:
-    """Extract the full text of working/TARGET.pdf (OCR fallback per scanned
-    page) to working/OUTPUT.txt."""
+class FetchUrlTool:
+    """Download a URL using Python requests (a curl replacement, so no
+    per-call permission prompt is needed). Sends a normal desktop-browser
+    User-Agent.
+
+    With no dest= given, writes straight to working/TARGET.pdf (overwriting
+    any existing one). With dest=working/<dir>, that directory must already
+    exist under working/, and the file is saved there under the same
+    filename it has in the URL.
+
+    Args: target=<url>  [dest=working/<dir>]
+    """
 
     def run_op(self, argmap):
-        UTIL.extract_pdf_text()
+        target = argmap.getStr("target", "")
+        dest = argmap.getStr("dest", "")
+        UTIL.fetch_url(target, dest)
+
+
+class PdfExtractTextTool:
+    """Extract the full text of pdf= (OCR fallback per scanned page) to
+    working/OUTPUT.txt.
+
+    Args: pdf=working/<path>.pdf
+    """
+
+    def run_op(self, argmap):
+        pdf = argmap.getStr("pdf", "")
+        UTIL.extract_pdf_text(pdf)
 
 
 class PdfInfoTool:
-    """Write a JSON summary of working/TARGET.pdf - metadata, page count,
-    file size, and per-page stats (dimensions, text length, whether it looks
-    scanned) - to working/OUTPUT.txt."""
+    """Write a JSON summary of pdf= - metadata, page count, file size, and
+    per-page stats (dimensions, text length, whether it looks scanned) - to
+    working/OUTPUT.txt.
+
+    Args: pdf=working/<path>.pdf
+    """
 
     def run_op(self, argmap):
-        UTIL.extract_pdf_info()
+        pdf = argmap.getStr("pdf", "")
+        UTIL.extract_pdf_info(pdf)
 
 
 class PdfKeywordScanTool:
-    """Scan working/TARGET.pdf's text for development-project keywords (site
-    plan, subdivision, residential, commercial, ...) and write JSON hits with
-    page numbers and snippets to working/OUTPUT.txt. Pass keywords=...
+    """Scan pdf='s text for development-project keywords (site plan,
+    subdivision, residential, commercial, ...) and write JSON hits with page
+    numbers and snippets to working/OUTPUT.txt. Pass keywords=...
     (comma-separated) to override the default list.
 
-    Args: [keywords=a,b,c]
+    Args: pdf=working/<path>.pdf  [keywords=a,b,c]
     """
 
     def run_op(self, argmap):
+        pdf = argmap.getStr("pdf", "")
         keywords = argmap.getStr("keywords", UTIL.DEFAULT_SCAN_KEYWORDS)
 
-        UTIL.scan_pdf_keywords(keywords)
+        UTIL.scan_pdf_keywords(keywords, pdf)
 
 
 class PdfRenderPagesTool:
-    """Render pages of working/TARGET.pdf to PNG images (one file per page)
-    inside working/OUTPUT_PAGES/. With no pages= given, renders the whole
-    document up to a safety cap (see MAX_RENDER_PAGES_DEFAULT); pass an
-    explicit page range to go beyond that on purpose.
+    """Render pages of pdf= to PNG images (one file per page) inside
+    working/OUTPUT_PAGES/. With no pages= given, renders the whole document
+    up to a safety cap (see MAX_RENDER_PAGES_DEFAULT); pass an explicit page
+    range to go beyond that on purpose.
 
-    Args: [dpi=150]  [pages=1-6,10]
+    Args: pdf=working/<path>.pdf  [dpi=150]  [pages=1-6,10]
     """
 
     def run_op(self, argmap):
+        pdf = argmap.getStr("pdf", "")
         dpi = argmap.getInt("dpi", 150)
         pages = argmap.getStr("pages", "")
 
-        UTIL.render_pdf_pages(dpi, pages)
+        UTIL.render_pdf_pages(dpi, pages, pdf)
 
 
 if __name__ == '__main__':

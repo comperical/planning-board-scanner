@@ -11,6 +11,17 @@ projects can be surfaced for trades pros. Work happens in two phases per town:
 (1) recon the town's website and document how to access it, (2) pull and
 analyze the actual PDFs.
 
+## Permissions - work within what's pre-approved
+
+`.claude/settings.local.json` pre-approves exactly the commands this workflow
+needs: `playwright-cli -s=planscan ...`, `wwiocode/pyscript/plan_entry.py ...`
+(run from the project root), `WebSearch`, and Read/Edit/Write anywhere under
+`working/`. Stick to those forms - e.g. don't `cd` into a subdirectory before
+invoking `plan_entry.py`, and don't open an unnamed/default Playwright
+session - so the task can run without stopping for a new permission prompt.
+If a task genuinely needs something outside this set, just ask normally
+rather than working around it.
+
 ## Repo layout
 
 - `towninfo/<town>.md` - one write-up per town: platform/CMS, bot-protection
@@ -26,10 +37,21 @@ analyze the actual PDFs.
 
 ## Phase 1: researching a town's site
 
-Use the `playwright-cli` skill with the `planscan` session
-(`playwright-cli -s=planscan ...`) to navigate the town's site and find its
-planning board's agenda/minutes archive. Things to establish and write down
-in `towninfo/<town>.md`:
+Use the `playwright-cli` skill, always with the `planscan` session name
+(`-s=planscan` on every call) - never a default/unnamed session:
+
+```bash
+playwright-cli -s=planscan open https://example.town.gov   # first call opens the session
+playwright-cli -s=planscan goto https://example.town.gov/planning-board
+playwright-cli -s=planscan snapshot
+playwright-cli -s=planscan find "agenda"
+playwright-cli -s=planscan click e15
+```
+
+Check `playwright-cli -s=planscan list` first if unsure whether the session
+is already open. Navigate the town's site to find its planning board's
+agenda/minutes archive. Things to establish and write down in
+`towninfo/<town>.md`:
 
 - What CMS/platform the site runs (CivicPlus, a custom site + a document
   management system like Treeno, etc).
@@ -62,35 +84,44 @@ wwiocode/pyscript/plan_entry.py <ToolName> [key=value ...]
 (this exact relative-from-project-root invocation is pre-approved in
 `.claude/settings.local.json` - no permission prompt).
 
-They deliberately do **not** take input/output paths as arguments. Every
-tool reads a single hardcoded input and writes a single hardcoded output,
-both inside `working/`:
+The PDF analysis tools' output goes to a single hardcoded location inside
+`working/` (no output path to inject):
 
-- Input: `working/TARGET.pdf` - copy or symlink the PDF you want to analyze
-  there first (`cp working/<town>/somefile.pdf working/TARGET.pdf`).
 - Output: `working/OUTPUT.txt` for text/JSON-producing tools (each run
   overwrites it - copy it elsewhere first if you need to keep more than one
   result around).
 - Output: `working/OUTPUT_PAGES/` for the page-render tool (one PNG per
   page).
 
+The input PDF, by contrast, is a caller-supplied `pdf=working/<...>.pdf`
+argument - not a fixed filename - but it's checked **before any work
+happens** against two rules: it must start with `working/`, and it must
+already exist as a file. That means you can point a tool straight at
+whatever's already sitting in `working/<town>/` - no copy/symlink step
+needed - while still keeping every tool confined to the gitignored scratch
+area.
+
 Tools:
 
 | Tool | What it does |
 |---|---|
-| `PdfExtractText` | Full text extraction (OCR fallback per scanned page) |
-| `PdfInfo` | JSON: metadata, page count, file size, per-page text-length/scanned flag |
-| `PdfKeywordScan` | JSON: page/snippet hits for development-project terms (site plan, subdivision, residential, commercial, variance, ...). Override with `keywords=a,b,c` |
-| `PdfRenderPages` | Renders pages to PNG via PyMuPDF (no poppler needed) - useful for large scanned "materials packet" PDFs. Caps at 30 pages by default; pass `pages=1-6,10` to target specific pages or go further |
+| `FetchUrl` | Downloads `target=<url>` via Python `requests` with a normal desktop User-Agent - a `curl` replacement that needs no permission prompt. With no `dest=`, writes straight to `working/TARGET.pdf` (overwriting it) - pass `pdf=working/TARGET.pdf` to the tools below. With `dest=working/<dir>` (must already exist, under `working/`), saves there instead under the file's original name (from the response's `Content-Disposition` header, falling back to the URL's last path segment) - handy for building up a `working/<town>/` archive directly. |
+| `PdfExtractText` | Full text extraction (OCR fallback per scanned page). `pdf=working/<path>.pdf` |
+| `PdfInfo` | JSON: metadata, page count, file size, per-page text-length/scanned flag. `pdf=working/<path>.pdf` |
+| `PdfKeywordScan` | JSON: page/snippet hits for development-project terms (site plan, subdivision, residential, commercial, variance, ...). `pdf=working/<path>.pdf`, override keywords with `keywords=a,b,c` |
+| `PdfRenderPages` | Renders pages to PNG via PyMuPDF (no poppler needed) - useful for large scanned "materials packet" PDFs. `pdf=working/<path>.pdf`. Caps at 30 pages by default; pass `pages=1-6,10` to target specific pages or go further |
 
 Example:
 
 ```bash
-cp working/dover_nh/2026.09.22_PlanningBoard.Materials.pdf working/TARGET.pdf
-wwiocode/pyscript/plan_entry.py PdfKeywordScan
+wwiocode/pyscript/plan_entry.py FetchUrl target=https://example.town.gov/agendas/2026.09.22_PlanningBoard.Materials.pdf
+wwiocode/pyscript/plan_entry.py PdfKeywordScan pdf=working/TARGET.pdf
 cat working/OUTPUT.txt
-wwiocode/pyscript/plan_entry.py PdfRenderPages pages=1-3
+wwiocode/pyscript/plan_entry.py PdfRenderPages pdf=working/TARGET.pdf pages=1-3
 # then Read working/OUTPUT_PAGES/page_001.png etc.
+
+# or analyze an already-downloaded file directly, no copy step:
+wwiocode/pyscript/plan_entry.py PdfInfo pdf=working/dover_nh/2026.09.22_PlanningBoard.Materials.pdf
 ```
 
 For a large "materials"/packet-style PDF (scanned drawings, application
