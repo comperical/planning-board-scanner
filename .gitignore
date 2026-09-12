@@ -219,3 +219,6 @@ __marimo__/
 
 # Project working directory (downloaded documents)
 /working/
+
+# Playwright CLI snapshots/logs
+.playwright-cli/
