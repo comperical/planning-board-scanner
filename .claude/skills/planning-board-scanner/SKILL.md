@@ -13,12 +13,46 @@ analyze the actual PDFs.
 
 ## Permissions - work within what's pre-approved
 
-`.claude/settings.local.json` pre-approves exactly the commands this workflow
-needs: `playwright-cli -s=planscan ...`, `wwiocode/pyscript/plan_entry.py ...`
-(run from the project root), `WebSearch`, and Read/Edit/Write anywhere under
-`working/`. Stick to those forms - e.g. don't `cd` into a subdirectory before
-invoking `plan_entry.py`, and don't open an unnamed/default Playwright
-session - so the task can run without stopping for a new permission prompt.
+`.claude/settings.local.json` pre-approves exactly these Bash command
+prefixes, matched against the **whole** command string:
+
+- `playwright-cli -s=planscan ...`
+- `wwiocode/pyscript/plan_entry.py ...` (run from the project root)
+
+Plus `WebSearch`, and Read/Edit/Write anywhere under `working/` and
+`towninfo/`.
+
+Because the match is against the entire command, **never chain, pipe, or
+combine commands** - no `|`, `&&`, `;`, or command substitution tacked onto
+a `playwright-cli` or `plan_entry.py` call. Each of these breaks the
+allowlist match and forces a new permission prompt:
+
+```bash
+# Don't:
+playwright-cli -s=planscan goto https://example.town.gov | tail -30
+wwiocode/pyscript/plan_entry.py PdfInfo pdf=working/TARGET.pdf 2>&1 | tail -3 && cat working/OUTPUT.txt
+mkdir -p working/example_town && wwiocode/pyscript/plan_entry.py FetchUrl ...
+
+# Do: one bare command per call, full output goes to context automatically
+playwright-cli -s=planscan goto https://example.town.gov
+wwiocode/pyscript/plan_entry.py PdfInfo pdf=working/TARGET.pdf
+```
+
+Other consequences:
+
+- Don't `cd` into a subdirectory before invoking `plan_entry.py`, and don't
+  open an unnamed/default Playwright session - always `-s=planscan`.
+- Never pipe/redirect a call's own output (`| tail`, `| head`, `2>&1 |`,
+  `> file`) - if a snapshot or result is large, it's saved to a persisted
+  file automatically and the tool result tells you where; read that file
+  with the Read tool, not `cat` (there's no bare `cat`/`Bash(cat *)` grant).
+- There's no `mkdir` grant either. To create a new `working/<town>/`
+  directory, use the Write tool to write a placeholder file inside it
+  (e.g. `working/<town>/.keep`) - Write creates missing parent directories
+  as a side effect - or just pass `dest=working/<town>` to `FetchUrl` after
+  that placeholder write, since `FetchUrl` itself requires the destination
+  to already exist.
+
 If a task genuinely needs something outside this set, just ask normally
 rather than working around it.
 
@@ -113,10 +147,12 @@ Tools:
 
 Example:
 
+Each of these is its own separate, bare tool call - not chained:
+
 ```bash
 wwiocode/pyscript/plan_entry.py FetchUrl target=https://example.town.gov/agendas/2026.09.22_PlanningBoard.Materials.pdf
 wwiocode/pyscript/plan_entry.py PdfKeywordScan pdf=working/TARGET.pdf
-cat working/OUTPUT.txt
+# then Read working/OUTPUT.txt with the Read tool (not cat)
 wwiocode/pyscript/plan_entry.py PdfRenderPages pdf=working/TARGET.pdf pages=1-3
 # then Read working/OUTPUT_PAGES/page_001.png etc.
 

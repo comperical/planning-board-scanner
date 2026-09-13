@@ -3,6 +3,7 @@
 import os
 import sys
 
+import plan_db as DB
 import plan_util as UTIL
 
 
@@ -147,6 +148,23 @@ class PdfRenderPagesTool:
         pages = argmap.getStr("pages", "")
 
         UTIL.render_pdf_pages(dpi, pages, pdf)
+
+
+class UpdateDbTool:
+    """Load document registrations from the hardcoded JSON file at
+    working/DB_UPDATE.json into the SQLite database (see plan_db.py) -
+    a JSON list of {"file_path": "working/<town>/<file>.pdf",
+    "source_url": "..." (optional), "date": "YYYY-MM-DD" (optional)}
+    objects. Upserts by file_path (and creates each town's row as a side
+    effect); safe to re-run.
+
+    Args: (none - edit working/DB_UPDATE.json, then run this)
+    """
+
+    def run_op(self, argmap):
+        conn = DB.get_connection()
+        document_ids = DB.update_documents_from_json(conn)
+        print(f"Updated {len(document_ids)} document(s) from {DB.DB_UPDATE_PATH}")
 
 
 if __name__ == '__main__':
