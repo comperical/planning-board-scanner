@@ -45,6 +45,15 @@ DB_PATH = Path("/opt/userdata/db4widget/dburfoot/PLANSCAN_DB.sqlite")
 # update_documents_from_json() for the expected shape.
 DB_UPDATE_PATH = WORK_DIR / "DB_UPDATE.json"
 
+# Naming convention for editing a project by hand (see the ApplyProjectEdit
+# tool in plan_entry.py / sync_project_from_files() below): to update
+# project <id>, write working/project_edit/<id>.md (the full_md_text field
+# - free-form markdown) and/or working/project_edit/<id>.json (every other
+# updatable field, currently just {"short_desc": "..."}), then run the tool
+# to apply both to the DB. Either file may be omitted to leave that side
+# unchanged.
+PROJECT_EDIT_DIR = WORK_DIR / "project_edit"
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS town (
@@ -87,10 +96,55 @@ CREATE TABLE IF NOT EXISTS keyword_hits (
     snippet             TEXT
 );
 
+CREATE TABLE IF NOT EXISTS doc_pages (
+    id                  INTEGER PRIMARY KEY,
+    document_id         INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    page_number         INTEGER NOT NULL,  -- 1-indexed
+    page_text           TEXT,              -- full extracted text of this page (OCR fallback if scanned)
+    UNIQUE(document_id, page_number)
+);
+
+-- A "project" is a real development (a specific site plan, subdivision,
+-- etc.) identified by hand from one or more documents/keyword hits - unlike
+-- every other table above, these rows aren't produced automatically by a
+-- scan tool. short_desc/full_md_text are curated by whoever spots the
+-- project (e.g. "150 Portsmouth Blvd - 3-building 6-story multifamily").
+CREATE TABLE IF NOT EXISTS projects (
+    id                  INTEGER PRIMARY KEY,
+    town_id             INTEGER REFERENCES town(id),
+    short_desc          TEXT,              -- one-line summary, e.g. "150 Portsmouth Blvd - 3-building multifamily"
+    full_md_text        TEXT               -- full markdown write-up: description, status, addresses, applicant, etc.
+);
+
+-- Links a project to every document that mentions it (a project is
+-- typically referenced across several meetings - an agenda, then minutes,
+-- then a later extension/approval).
+CREATE TABLE IF NOT EXISTS project_documents (
+    id                  INTEGER PRIMARY KEY,
+    project_id          INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    document_id         INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    UNIQUE(project_id, document_id)
+);
+
+-- One row per pass of manual/human analysis over a document (as opposed to
+-- keyword_hits/doc_pages, which are produced automatically by a scan) -
+-- e.g. "read pages 40-60 for the site plan, nothing new past project #3".
+CREATE TABLE IF NOT EXISTS analysis_log (
+    id                  INTEGER PRIMARY KEY,
+    document_id         INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    logged_at           TEXT NOT NULL,  -- UTC timestamp, datetime('now')
+    notes               TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_documents_town ON documents(town_id);
 CREATE INDEX IF NOT EXISTS idx_pages_document ON pages(document_id);
 CREATE INDEX IF NOT EXISTS idx_keyword_hits_document ON keyword_hits(document_id);
 CREATE INDEX IF NOT EXISTS idx_keyword_hits_keyword ON keyword_hits(keyword);
+CREATE INDEX IF NOT EXISTS idx_doc_pages_document ON doc_pages(document_id);
+CREATE INDEX IF NOT EXISTS idx_projects_town ON projects(town_id);
+CREATE INDEX IF NOT EXISTS idx_project_documents_project ON project_documents(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_documents_document ON project_documents(document_id);
+CREATE INDEX IF NOT EXISTS idx_analysis_log_document ON analysis_log(document_id);
 """
 
 
@@ -163,6 +217,7 @@ def upsert_document(conn, file_path, *, source_url=None, doc_date=None):
         """,
         (file_path, town_id, source_url, doc_date),
     )
+    conn.commit()
     row = conn.execute(
         "SELECT id FROM documents WHERE file_path = ?", (file_path,)
     ).fetchone()
@@ -216,6 +271,31 @@ def record_pdf_info(conn, file_path, info, *, source_url=None):
     return document_id
 
 
+def record_document_text(conn, file_path, page_texts, *, source_url=None):
+    """Store per-page extracted text (see plan_util.get_pdf_page_texts) for
+    file_path: one doc_pages row per page. Replaces any previously recorded
+    text for this document (a re-extraction supersedes the old text rather
+    than accumulating duplicates). page_texts is a list of page text
+    strings, 1-indexed by position."""
+
+    document_id = upsert_document(conn, file_path, source_url=source_url)
+
+    conn.execute("DELETE FROM doc_pages WHERE document_id = ?", (document_id,))
+    conn.executemany(
+        """
+        INSERT INTO doc_pages (document_id, page_number, page_text)
+        VALUES (?, ?, ?)
+        """,
+        [
+            (document_id, pagenum, pagetext)
+            for pagenum, pagetext in enumerate(page_texts, start=1)
+        ],
+    )
+
+    conn.commit()
+    return document_id
+
+
 def record_keyword_scan(conn, file_path, result, *, source_url=None):
     """Store the JSON produced by PdfKeywordScanTool (see
     plan_util.scan_pdf_keywords) for file_path: one row per hit. Replaces
@@ -243,6 +323,104 @@ def record_keyword_scan(conn, file_path, result, *, source_url=None):
 
     conn.commit()
     return document_id
+
+
+def create_project(conn, town_slug, short_desc="", full_md_text=""):
+    """Create a new projects row for town_slug (e.g. "portsmouth_nh" -
+    creates the town row as a side effect, like upsert_document) and return
+    its id. Projects are curated by hand, not produced by a scan tool, so
+    unlike documents there's no upsert-by-key here - each call makes a new
+    row; use update_project/link_project_document to fill it in further."""
+
+    town_id = get_or_create_town(conn, town_slug)
+
+    cur = conn.execute(
+        "INSERT INTO projects (town_id, short_desc, full_md_text) VALUES (?, ?, ?)",
+        (town_id, short_desc, full_md_text),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def update_project(conn, project_id, *, short_desc=None, full_md_text=None):
+    """Update short_desc and/or full_md_text on an existing project row.
+    Only the fields given (not None) are changed."""
+
+    fields, values = [], []
+    if short_desc is not None:
+        fields.append("short_desc = ?")
+        values.append(short_desc)
+    if full_md_text is not None:
+        fields.append("full_md_text = ?")
+        values.append(full_md_text)
+
+    assert fields, "Nothing to update - pass short_desc and/or full_md_text"
+
+    values.append(project_id)
+    conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id = ?", values)
+    conn.commit()
+
+
+def link_project_document(conn, project_id, document_id):
+    """Record that document_id mentions project_id (a project is typically
+    referenced across several meetings' documents). Safe to call repeatedly
+    - the (project_id, document_id) pair is unique, so a duplicate link is
+    silently ignored rather than erroring."""
+
+    conn.execute(
+        "INSERT OR IGNORE INTO project_documents (project_id, document_id) VALUES (?, ?)",
+        (project_id, document_id),
+    )
+    conn.commit()
+
+
+def log_analysis(conn, file_path, notes="", *, source_url=None):
+    """Record a pass of manual analysis over file_path - a timestamped
+    analysis_log row with a short free-text note (e.g. "checked pages
+    40-60, no new projects past #3"). Always inserts a new row (this is a
+    log, not a upserted field) - repeated calls accumulate history rather
+    than overwriting."""
+
+    document_id = upsert_document(conn, file_path, source_url=source_url)
+
+    conn.execute(
+        "INSERT INTO analysis_log (document_id, logged_at, notes) VALUES (?, datetime('now'), ?)",
+        (document_id, notes),
+    )
+    conn.commit()
+    return document_id
+
+
+def sync_project_from_files(conn, project_id):
+    """Apply working/project_edit/<project_id>.md (full_md_text) and
+    working/project_edit/<project_id>.json (every other updatable field -
+    currently just short_desc) to the projects row - see PROJECT_EDIT_DIR
+    above for the naming convention. Either file may be absent, in which
+    case that side is left unchanged; at least one must exist. Once applied,
+    both files are deleted (whichever existed) so working/project_edit/
+    doesn't accumulate stale edits already committed to the DB."""
+
+    mdpath = PROJECT_EDIT_DIR / f"{project_id}.md"
+    jsonpath = PROJECT_EDIT_DIR / f"{project_id}.json"
+
+    assert mdpath.exists() or jsonpath.exists(), \
+        f"Neither {mdpath} nor {jsonpath} exists - nothing to sync"
+
+    full_md_text = mdpath.read_text(encoding="utf-8") if mdpath.exists() else None
+
+    fields = {}
+    if jsonpath.exists():
+        with open(jsonpath, encoding="utf-8") as fh:
+            fields = json.load(fh)
+
+    update_project(conn, project_id, short_desc=fields.get("short_desc"), full_md_text=full_md_text)
+
+    if mdpath.exists():
+        mdpath.unlink()
+    if jsonpath.exists():
+        jsonpath.unlink()
+
+    return project_id
 
 
 def load_json_output(path=WORK_DIR / "OUTPUT.txt"):

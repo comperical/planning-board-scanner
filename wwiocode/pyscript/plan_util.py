@@ -264,6 +264,17 @@ def extract_pdf_text(pdf_arg):
     print(f"Extracted text for {inpath} -> {outpath} ({len(fulltext)} chars)")
 
 
+def get_pdf_page_texts(pdf_arg):
+    """Return a list of the given PDF's page texts (OCR fallback per scanned
+    page), 1-indexed by position - the per-page counterpart to
+    extract_pdf_text's single joined blob. Used to populate the doc_pages
+    table (see plan_db.record_document_text) rather than write to
+    OUTPUT_PATH."""
+
+    inpath = resolve_input_pdf(pdf_arg)
+    return list(_gen_page_text(inpath))
+
+
 def extract_pdf_info(pdf_arg):
     """Write a JSON summary of the given PDF to OUTPUT_PATH: metadata, page
     count/size, and per-page stats (dimensions, text length, whether OCR
