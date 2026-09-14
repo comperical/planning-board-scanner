@@ -2,32 +2,21 @@
 
 Investigated: 2026-09-14
 
-Belknap County town, south of Laconia/Gilford. Runs a **custom WordPress
-site**, not CivicPlus. No bot protection.
+Belknap County town, south of Laconia/Gilford. Platform: custom WordPress
+(see PATTERNS.md), not CivicPlus. No bot protection.
 
-## Platform
+## Platform notes
 
-- Main site: `https://belmontnh.gov` — WordPress.
-- Each meeting gets its own page: `/meetings/{YYYY-MM-DD}-planning-board-meeting/`
-  (e.g. `/meetings/2026-02-23-planning-board-meeting/`), each embedding
-  direct download links for the Agenda and (once posted) the Minutes.
-- Also has a calendar/events version: `/events/planning-board-meeting/`
-  and `/events/planning-board-meeting-{date}/` for individual occurrences
-  — not cross-checked against `/meetings/...` for content parity.
-- A "Public Meetings and Resources" page also surfaced at
-  `belmont.gov/departments/meetings-agendas-minutes` in search results —
-  that's a different town (Belmont, MA / generic city), not this NH town;
-  don't confuse domains.
-
-## URL structure
-
-- Static WordPress media uploads:
-  `https://belmontnh.gov/wp-content/uploads/sites/38/{YYYY}/{MM}/
-  {YYMMDD}PBAgenda.pdf` (agenda) and `.../{YYMMDD}-PB-MInutes.pdf`
-  [sic, typo capitalization preserved] (minutes) — the `sites/38/`
-  segment is a WordPress multisite id, constant across Belmont's pages.
-- **Confirmed `FetchUrl` (plain `requests`, no browser/session) downloads
-  these directly** — no referer/cookie gate.
+- Main site: `https://belmontnh.gov`. ⚠️ Not the same as `belmont.gov`
+  (Belmont, MA — a different town), don't confuse domains.
+- Each meeting gets its own page: `/meetings/{YYYY-MM-DD}-planning-board-
+  meeting/`, embedding direct download links for Agenda and (once posted)
+  Minutes. Also a calendar/events version at `/events/planning-board-
+  meeting-{date}/` (not cross-checked for content parity).
+- Static media path: `/wp-content/uploads/sites/38/{YYYY}/{MM}/
+  {YYMMDD}PBAgenda.pdf` (agenda) / `.../{YYMMDD}-PB-MInutes.pdf` [sic,
+  typo preserved] (minutes) — `sites/38/` is a WordPress multisite id,
+  constant across Belmont's pages.
 - Live meetings streamed at `youtube.com/@belmontlive`; Zoom links posted
   per-meeting at the bottom of each agenda.
 
@@ -36,10 +25,9 @@ site**, not CivicPlus. No bot protection.
 - **Agenda PDF** (Feb 23, 2026, 159KB): real content — `PdfKeywordScan`
   found 3 hits: a Site Plan Review application by the Susan
   Condodemetraky Revocable Trust to expand an existing contractor's yard
-  to include towing and temporary storage of vehicles; and a Boundary
-  Line Adjustment between the Paroma Condominium Association and
-  Mallard's Landing Association, transferring a small parcel between the
-  two associations.
+  to include towing and temporary vehicle storage; and a Boundary Line
+  Adjustment between the Paroma Condominium Association and Mallard's
+  Landing Association, transferring a small parcel between the two.
 
 ## Sample files downloaded
 

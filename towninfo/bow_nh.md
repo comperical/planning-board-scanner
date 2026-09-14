@@ -2,28 +2,18 @@
 
 Investigated: 2026-09-14
 
-Merrimack County town, south of Concord. Runs CivicPlus CivicEngage with
-the Agenda Center module — same shape as other towns this session — plain
-PDFs, no bot protection. Page title renders "Agenda & Minutes Center"
-(slightly different label than most other towns' "Agenda Center").
+Merrimack County town, south of Concord. Platform: standard CivicPlus
+Agenda Center (see PATTERNS.md) — no bot protection. Page title renders
+"Agenda & Minutes Center" (slightly different label than most other
+towns').
 
-## Platform
+## Platform notes
 
-- Main site: `https://bownh.gov`.
-- Direct per-board Agenda Center: `/AgendaCenter/Planning-Board-7`.
-- Bow's Planning Board frequently posts **joint "Planning Board &
-  Conservation Commission Site Visit" public notices** as separate entries
-  alongside regular meeting agendas — filter by title when scraping to
-  distinguish site-visit notices from full meeting agendas.
-
-## URL structure
-
-- Same shape as other AgendaCenter towns:
-  `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}`, with
-  `?html=true` on some agenda links (safe to strip).
-- **Confirmed `FetchUrl` (plain `requests`, no browser/session) downloads
-  these directly** as real PDFs — descriptive filename via
-  Content-Disposition (`07162026 Planning Board Agenda.pdf`).
+- Main site: `https://bownh.gov`. Direct per-board Agenda Center:
+  `/AgendaCenter/Planning-Board-7`.
+- Frequently posts joint "Planning Board & Conservation Commission Site
+  Visit" public notices as separate entries alongside regular meeting
+  agendas — filter by title when scraping.
 - Meetings: 1st & 3rd Thursday-ish, 7pm, Bow Municipal Building Meeting
   Room C (or Zoom).
 
@@ -34,9 +24,8 @@ PDFs, no bot protection. Page title renders "Agenda & Minutes Center"
   behalf of **Mariner Tower, LLC**), a Site Plan Application + PWSF
   (Personal Wireless Service Facility) Conditional Use Permit for a
   proposed telecommunications facility on a 100'x100' lease area,
-  continued from the June 18, 2026 meeting. Also references a separate
-  property at 1280 Route 3-A (Map 35, Block 2, Lot 99, General Industrial
-  I-2 zone).
+  continued from June 18, 2026. Also references a separate property at
+  1280 Route 3-A (Map 35, Block 2, Lot 99, General Industrial I-2 zone).
 
 ## Sample files downloaded
 

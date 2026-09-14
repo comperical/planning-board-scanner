@@ -2,37 +2,26 @@
 
 Investigated: 2026-09-14
 
-Merrimack County town, adjacent to Suncook/Pembroke. Runs CivicPlus
-CivicEngage with the Agenda Center module — same shape as other towns
-this session — plain PDFs, no bot protection.
+Merrimack County town, adjacent to Suncook/Pembroke. Platform: standard
+CivicPlus Agenda Center (see PATTERNS.md) — no bot protection.
 
-## Platform
+## Platform notes
 
-- Main site: `https://www.allenstownnh.gov`.
-- Planning Board hub: `/1289/Planning-Board`.
-- ⚠️ `/AgendaCenter/Planning-Board` (no numeric suffix) **404s** — the
-  per-board Agenda Center URL needs the numeric id (not captured this
-  session); use `/agendacenter` and expand the Planning Board section
-  manually, or scrape directly via known `ViewFile` ids from search
-  results.
+- Main site: `https://www.allenstownnh.gov`. Planning Board hub:
+  `/1289/Planning-Board`.
+- ⚠️ `/AgendaCenter/Planning-Board` (no numeric suffix) **404s** — needs the
+  numeric id (not captured this session); use `/agendacenter` and expand
+  the section manually.
 - Some agenda links carry a `?packet=true` query param (seen on a
-  Selectmen example) — likely toggles a fuller packet view; not confirmed
-  for Planning Board specifically this session.
-
-## URL structure
-
-- Same shape as other AgendaCenter towns:
-  `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}`.
-- **Confirmed `FetchUrl` (plain `requests`, no browser/session) downloads
-  these directly** as real PDFs.
+  Selectmen example, not confirmed for Planning Board).
 
 ## Document content
 
 - **Minutes PDF** (Mar 18, 2026, 361KB): `PdfKeywordScan` found 0 hits —
   either an administrative-only session or the keyword set missed this
-  meeting's specific content; worth a follow-up sample from an agenda
-  (not minutes) PDF, and from a different date, before concluding
-  Allenstown is low-signal.
+  meeting's content; worth a follow-up sample from an agenda (not
+  minutes), and a different date, before concluding Allenstown is
+  low-signal.
 
 ## Sample files downloaded
 

@@ -2,24 +2,16 @@
 
 Investigated: 2026-09-14
 
-Merrimack County town, east of Concord. Runs CivicPlus CivicEngage with
-the Agenda Center module — same shape as other towns this session — plain
-PDFs, no bot protection. Planning Board section loads already expanded.
+Merrimack County town, east of Concord. Platform: standard CivicPlus
+Agenda Center (see PATTERNS.md) — no bot protection. Planning Board
+section loads already expanded.
 
-## Platform
+## Platform notes
 
-- Main site: `https://www.pembroke-nh.com`.
-- Agenda Center: `/AgendaCenter`.
-- Also has a "Recorded Meetings" nav item (site-wide video archive) —
-  a possible secondary source not explored this session.
-
-## URL structure
-
-- Same shape as other AgendaCenter towns:
-  `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}`.
-- **Confirmed `FetchUrl` (plain `requests`, no browser/session) downloads
-  these directly** as real PDFs — descriptive filename via
-  Content-Disposition (`Public Hearing Notice 09-22-26.pdf`).
+- Main site: `https://www.pembroke-nh.com`. Agenda Center:
+  `/AgendaCenter`.
+- Also has a "Recorded Meetings" nav item (site-wide video archive) — a
+  possible secondary source not explored.
 
 ## Document content
 

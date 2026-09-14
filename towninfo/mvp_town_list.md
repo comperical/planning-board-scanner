@@ -7,6 +7,11 @@ Lake Winnipesaukee.
 
 Status legend: ✅ researched (`towninfo/<slug>.md` exists) · ⬜ not yet started.
 
+**See `PATTERNS.md` for shared access patterns** (platform taxonomy, URL
+shapes, access gotchas, document-content conventions) common across many
+towns — individual town files below only record what's different for that
+specific town.
+
 ## Seacoast (Rockingham County, coastal)
 - ✅ Portsmouth — `portsmouth_nh.md`
 - ✅ New Castle — `new_castle_nh.md`

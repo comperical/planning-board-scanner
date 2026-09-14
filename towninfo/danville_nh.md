@@ -2,33 +2,23 @@
 
 Investigated: 2026-09-14
 
-Small Rockingham County town. Runs CivicPlus CivicEngage with the Agenda
-Center module — same shape as the other Rockingham towns this session —
-plain PDFs, no bot protection.
+Small Rockingham County town. Platform: standard CivicPlus Agenda Center
+(see PATTERNS.md) — no bot protection.
 
-## Platform
+## Platform notes
 
-- Main site: `https://www.townofdanville.org` — CivicPlus CivicEngage.
-- Planning Board hub: `/1301/Planning-Board`.
-- Agenda Center: `/agendacenter` — Planning Board section loads already
-  expanded.
-- Danville's meeting **titles themselves carry the project/applicant**, like
+- Main site: `https://www.townofdanville.org`. Planning Board hub:
+  `/1301/Planning-Board`. Agenda Center section loads already expanded.
+- Meeting **titles themselves carry the project/applicant**, like
   Kensington: "Planning Board Meeting - Preliminary Discussion for a
-  possible subdivision at 79 Emerald Drive" (Sept 10, 2026), "Planning
-  Board Meeting for discussion of Zoning requested by Jeff & Joelle Stone
-  of 17 Quimby Court" (Aug 27, 2026) — real signal visible from the listing
-  page alone.
+  possible subdivision at 79 Emerald Drive" (Sept 10, 2026), "...for
+  discussion of Zoning requested by Jeff & Joelle Stone of 17 Quimby
+  Court" (Aug 27, 2026) — real signal visible from the listing page
+  alone.
 - ⚠️ Two different `docid` numbering series appear for the same date (Jan
-  22, 2026 has both `_01222026-144` and `_01222026-84`, one from an older
-  Planning Board series and one newer, likely a site/module migration
-  artifact) — dedupe by date+title when scraping, not by docid alone.
-
-## URL structure
-
-- Same shape as other AgendaCenter towns:
-  `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}`.
-- **Confirmed `FetchUrl` (plain `requests`, no browser/session) downloads
-  these directly** as real PDFs (`September 10 2026 Agenda.pdf`, 18KB).
+  22, 2026 has both `_01222026-144` and `_01222026-84`, likely a
+  site/module migration artifact) — dedupe by date+title, not docid
+  alone.
 - Meetings: 2nd & 4th Thursday, 7:30pm, Town Hall, 210 Main Street.
 
 ## Document content

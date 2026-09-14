@@ -2,36 +2,18 @@
 
 Investigated: 2026-09-14
 
-Rockingham County town. Runs CivicPlus CivicEngage with the Agenda Center
-module — same shape as the other Rockingham towns this session — plain
-PDFs, no bot protection.
+Rockingham County town. Platform: standard CivicPlus Agenda Center (see
+PATTERNS.md) — no bot protection.
 
-## Platform
+## Platform notes
 
-- Main site: `https://www.candianh.org` — CivicPlus CivicEngage.
+- Main site: `https://www.candianh.org`.
 - ⚠️ Search results surfaced a legacy non-CivicPlus path structure
-  (`/meeting_documents/`, `/docs/minutes/pb_2025_05_21.pdf`,
-  `/docs/misc/pb_rules_of_procedure.pdf`) — `/meeting_documents/` **404s**
-  on the current site (`Custom404 • Candia, NH • CivicEngage` — the
-  current CivicPlus theme's own 404 page, confirming this is a genuine
-  dead link rather than a different live platform). The `/docs/...` direct
-  file paths may still resolve individually (not tested), but the current
-  live browse path is the standard CivicPlus **Agenda Center**:
-  `https://www.candianh.org/AgendaCenter`.
-- Planning Board Rules of Procedure and other static docs may still be
-  reachable at their old `/docs/misc/...` paths even if the browse/index
-  page that used to link them is gone — worth a direct-URL check before
-  assuming a `/docs/` link is fully dead.
-
-## URL structure
-
-- Same shape as other AgendaCenter towns:
-  `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}` — e.g.
-  `/AgendaCenter/ViewFile/Minutes/_05202026-555`.
-- **Confirmed `FetchUrl` (plain `requests`, no browser/session) downloads
-  these directly** as real PDFs.
+  (`/meeting_documents/`, `/docs/minutes/...`) — `/meeting_documents/`
+  **404s** on the current site (confirmed via the CivicPlus theme's own
+  404 page). Live browse path is the standard Agenda Center.
 - Meetings: 1st & 3rd Wednesday monthly, 6:30pm, Candia Town Hall, 74 High
-  Street. Unapproved minutes are posted with an asterisk and replaced once
+  Street. Unapproved minutes posted with an asterisk, replaced once
   approved.
 
 ## Document content
@@ -43,9 +25,7 @@ PDFs, no bot protection.
   152-10 — creating a single-family residential lot with the remainder
   deeded to the Town of Chester for access/right-of-way. A second section
   discusses Master Plan survey results (residential growth management,
-  diverse housing) and a "zero lot line" condominium-style layout concept
-  — town-planning-policy content rather than a specific case, but still
-  useful context.
+  diverse housing) and a "zero lot line" condominium-style layout concept.
 
 ## Sample files downloaded
 
