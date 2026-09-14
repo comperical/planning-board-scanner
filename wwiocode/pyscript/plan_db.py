@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS project_documents (
     id                  INTEGER PRIMARY KEY,
     project_id          INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     document_id         INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    page_number         INTEGER,           -- 1-indexed page where the project is first mentioned in this document
     UNIQUE(project_id, document_id)
 );
 
@@ -158,8 +159,20 @@ def get_connection(db_path=DB_PATH):
     conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    _run_migrations(conn)
     conn.commit()
     return conn
+
+
+def _run_migrations(conn):
+    """CREATE TABLE IF NOT EXISTS (in SCHEMA above) only helps brand-new
+    databases - it does nothing for a column added to a table that already
+    exists on disk. Any such column gets a one-off ALTER TABLE here, guarded
+    by a check so it's safe to call on every connection."""
+
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(project_documents)")}
+    if "page_number" not in cols:
+        conn.execute("ALTER TABLE project_documents ADD COLUMN page_number INTEGER")
 
 
 def _town_slug_from_path(file_path):
@@ -361,15 +374,22 @@ def update_project(conn, project_id, *, short_desc=None, full_md_text=None):
     conn.commit()
 
 
-def link_project_document(conn, project_id, document_id):
+def link_project_document(conn, project_id, document_id, page_number=None):
     """Record that document_id mentions project_id (a project is typically
-    referenced across several meetings' documents). Safe to call repeatedly
-    - the (project_id, document_id) pair is unique, so a duplicate link is
-    silently ignored rather than erroring."""
+    referenced across several meetings' documents), optionally noting the
+    1-indexed page where that mention starts. Safe to call repeatedly - the
+    (project_id, document_id) pair is unique, so calling again just updates
+    page_number (when a new one is supplied; page_number=None leaves an
+    existing value alone rather than clearing it)."""
 
     conn.execute(
-        "INSERT OR IGNORE INTO project_documents (project_id, document_id) VALUES (?, ?)",
-        (project_id, document_id),
+        """
+        INSERT INTO project_documents (project_id, document_id, page_number)
+        VALUES (?, ?, ?)
+        ON CONFLICT(project_id, document_id) DO UPDATE SET
+            page_number = COALESCE(excluded.page_number, project_documents.page_number)
+        """,
+        (project_id, document_id, page_number),
     )
     conn.commit()
 
@@ -389,6 +409,23 @@ def log_analysis(conn, file_path, notes="", *, source_url=None):
     )
     conn.commit()
     return document_id
+
+
+def clear_analysis_log(conn, file_path):
+    """Delete every analysis_log row for file_path - the undo for
+    log_analysis(). Once cleared, the document has zero analysis_log rows
+    again, so NextToAnalyze will surface it as unanalyzed. Does not touch
+    projects or project_documents - any projects already recorded from this
+    document stay linked. Returns (document_id, rows_deleted)."""
+
+    document_id = upsert_document(conn, file_path)
+
+    cur = conn.execute(
+        "DELETE FROM analysis_log WHERE document_id = ?",
+        (document_id,),
+    )
+    conn.commit()
+    return document_id, cur.rowcount
 
 
 def sync_project_from_files(conn, project_id):

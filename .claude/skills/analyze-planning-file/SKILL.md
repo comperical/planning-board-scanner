@@ -16,9 +16,10 @@ wwiocode/pyscript/plan_entry.py NextToAnalyze
 wwiocode/pyscript/plan_entry.py NextToAnalyze town=rochester_nh   # restrict to one town
 ```
 
-Picks the oldest (`doc_date`) document with zero `analysis_log` rows. If it
-prints "Nothing left to analyze", stop - the backlog is empty (for that
-town, if filtered).
+Picks the most recent (`doc_date`) document with zero `analysis_log` rows -
+documents with no known doc_date sort last, since recency can't be judged
+for them. If it prints "Nothing left to analyze", stop - the backlog is
+empty (for that town, if filtered).
 
 ## 2. Pull up everything already known about it
 
@@ -78,16 +79,30 @@ This deletes the `.md`/`.json` files once applied - `working/project_edit/`
 should only ever hold edits not yet synced to the DB, never accumulate. Do
 not manually delete or leave stray files there.
 
-**Existing project mentioned again** (this document is a later
-minutes/extension/approval for a project already recorded): just link it,
-no new row:
+`CreateProject` does **not** link the project to the document it came
+from - that's a separate `project_documents` row. Always follow it with,
+noting the page where the project's mention starts (from the keyword-hit
+page in DocDetail's output, or from reading working/OUTPUT.txt):
 
 ```bash
-wwiocode/pyscript/plan_entry.py LinkProject project_id=<id> pdf=<path>
+wwiocode/pyscript/plan_entry.py LinkProject project_id=<project_id> pdf=<path> page=<page_number>
+```
+
+**Existing project mentioned again** (this document is a later
+minutes/extension/approval for a project already recorded): just link it,
+no new row - same page= convention:
+
+```bash
+wwiocode/pyscript/plan_entry.py LinkProject project_id=<id> pdf=<path> page=<page_number>
 ```
 
 A document can yield zero, one, or several projects - create/link one at a
-time for each.
+time for each. Every project a document yields - new or existing - must
+end up `LinkProject`-ed to that document; a new project row with no
+`project_documents` link back to its source document is an incomplete
+step. `page=` is optional but should be supplied whenever you know which
+page the mention starts on - it lets the documents page jump straight to
+that page in the source PDF.
 
 ## 5. Log the analysis pass
 
@@ -107,4 +122,5 @@ time - skipping this step means the same document keeps coming back up.
 
 Go back to step 1 for the next document. Stop when `NextToAnalyze` reports
 nothing left, or when the user asks to stop / caps the number of documents
-per session.
+per session. If the user didn't say how many documents to analyze, default
+to 4 and stop there rather than working through the whole backlog.

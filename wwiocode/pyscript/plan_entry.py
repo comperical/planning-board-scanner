@@ -264,20 +264,26 @@ class LinkProjectTool:
     """Link a project to a document that mentions it (project_documents
     table) - a project is typically referenced across several meetings'
     documents (an agenda, then minutes, then a later extension/approval).
+    page= is optional: the 1-indexed page where the project's mention
+    starts in this document (e.g. from a DocDetail keyword-hit or from
+    reading working/OUTPUT.txt). Safe to call again later to add/update the
+    page number - omitting page= leaves any existing value alone.
 
-    Args: project_id=<id>  pdf=working/<path>.pdf
+    Args: project_id=<id>  pdf=working/<path>.pdf  [page=<page_number>]
     """
 
     def run_op(self, argmap):
         project_id = argmap.getInt("project_id", -1)
         pdf = argmap.getStr("pdf", "")
+        page = argmap.getInt("page", -1)
 
         assert project_id != -1, "project_id=<id> is required"
 
         conn = DB.get_connection()
         document_id = DB.upsert_document(conn, pdf)
-        DB.link_project_document(conn, project_id, document_id)
-        print(f"Linked project {project_id} <-> document {document_id} ({pdf})")
+        DB.link_project_document(conn, project_id, document_id, page_number=(page if page != -1 else None))
+        pagesuffix = f", page {page}" if page != -1 else ""
+        print(f"Linked project {project_id} <-> document {document_id} ({pdf}){pagesuffix}")
 
 
 class LogAnalysisTool:
@@ -298,12 +304,31 @@ class LogAnalysisTool:
         print(f"Logged analysis for document {document_id} ({pdf}): {notes}")
 
 
+class ClearAnalysisLogTool:
+    """Delete every analysis_log row for pdf= - the undo for LogAnalysis.
+    Once cleared, the document has no recorded analysis pass, so
+    NextToAnalyze will surface it again. Does not remove any projects or
+    project_documents links already created from this document - only the
+    analysis_log rows themselves.
+
+    Args: pdf=working/<path>.pdf
+    """
+
+    def run_op(self, argmap):
+        pdf = argmap.getStr("pdf", "")
+
+        conn = DB.get_connection()
+        document_id, deleted = DB.clear_analysis_log(conn, pdf)
+        print(f"Cleared {deleted} analysis_log row(s) for document {document_id} ({pdf}).")
+
+
 class NextToAnalyzeTool:
     """Find the next document that has no analysis_log rows yet (i.e. has
     never been through LogAnalysis) and print its pdf= path plus enough
     context (town, date, keyword-hit count) to decide whether it's worth
-    opening. Oldest doc_date first. Prints nothing if every document has
-    already been analyzed at least once.
+    opening. Most recent doc_date first (documents with no known doc_date
+    sort last, since recency can't be judged for them). Prints nothing if
+    every document has already been analyzed at least once.
 
     Args: [town=<slug>]  (restrict to one town)
     """
@@ -323,7 +348,7 @@ class NextToAnalyzeTool:
         if town_filter:
             query += " AND t.slug = ?"
             params = (town_filter,)
-        query += " ORDER BY d.doc_date IS NULL, d.doc_date, d.id LIMIT 1"
+        query += " ORDER BY d.doc_date IS NULL, d.doc_date DESC, d.id DESC LIMIT 1"
 
         row = conn.execute(query, params).fetchone()
 
