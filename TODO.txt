@@ -1,0 +1,29 @@
+PLANSCAN TODO
+=============
+
+- Build a .docx text-extraction tool (parallel to PdfExtractText/
+  PdfKeywordScan/etc.) for towns whose site posts Word documents instead of
+  PDFs. Confirmed cases: Hampton Falls, NH (towninfo/hampton_falls_nh.md,
+  CivicPlus Agenda Center), Brentwood, NH (towninfo/brentwood_nh.md,
+  Municipal One platform), and Gilford, NH (towninfo/gilford_nh.md,
+  Legend Software platform) - these serve
+  application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+  which the current PDF-only toolchain in wwiocode/pyscript/plan_entry.py
+  cannot process. Sample files already downloaded (Hampton Falls only, see
+  hotlink item below for Brentwood):
+  working/hampton_falls_nh/2026-08-25 PB Agenda.docx,
+  working/hampton_falls_nh/_06232026-147 (rename to .docx).
+
+- Add a pre-approved way to decode a base64 blob (from a playwright-cli
+  in-page `fetch()`) back into a real file on disk, for towns whose file
+  server hotlink-blocks plain `requests` (403 on FetchUrl) and requires a
+  same-origin browser fetch instead. Confirmed cases so far: Concord
+  (Legistar View.ashx), Kingston NH and Madbury NH (both /media/{id} on
+  the newer CivicPlus per-meeting theme - see towninfo/kingston_nh.md,
+  towninfo/madbury_nh.md), and Brentwood, NH (/docview.aspx endpoint - see
+  towninfo/brentwood_nh.md, which ALSO needs the docx item below - both
+  problems apply to every Brentwood file). Currently this last step needs
+  an ad hoc Python/base64 snippet outside the project's pre-approved
+  command set, so these towns' agenda/minutes files were fetched as base64
+  in-session but never written to disk.
+

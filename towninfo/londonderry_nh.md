@@ -1,0 +1,68 @@
+# Londonderry, NH — Planning Board Web Access
+
+Investigated: 2026-09-14
+
+Londonderry is a larger, industrially-active Rockingham town near
+Manchester-Boston Regional Airport. Runs CivicPlus CivicEngage with the
+Agenda Center module — same shape as other Rockingham towns this session —
+plain PDFs, no bot protection.
+
+## Platform
+
+- Main site: `https://www.londonderrynh.gov`.
+- Planning Board hub: `/365/Planning-Board`.
+- Direct per-board Agenda Center: `/AgendaCenter/Planning-Board-16/`.
+- Two distinct agenda title styles alternate: plain **"Planning Board
+  Regular Meeting Agenda (PDF)"** (a compact, text-only agenda — see
+  below) vs. **"Planning Board Regular Meeting Materials"** (likely a
+  larger merged packet, not sampled this session — see Salem's write-up
+  for the caveat that a "Materials" file can sometimes be only a cover/
+  index page rather than the full packet; worth checking here too).
+
+## URL structure
+
+- Same shape as other AgendaCenter towns:
+  `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}`, with
+  `?html=true` on some agenda links (safe to strip).
+- **Confirmed `FetchUrl` (plain `requests`, no browser/session) downloads
+  these directly** as real PDFs.
+- Meetings: weekly-ish "Regular Meeting" sessions, 7pm, Moose Hill
+  Conference Room, 268B Mammoth Road.
+
+## Document content
+
+- **Agenda PDF** (Sept 9, 2026, 9KB — the "Agenda (PDF)" style, not
+  "Materials"): despite the tiny file size, this is **full plain-text
+  agenda content**, not a scanned/image PDF or a bare index — and it is
+  the richest single document read in this entire project so far. Four
+  full public hearings, each with complete legal-notice-style detail:
+  - A lot-line-adjustment review, 16 & 22 Delta Drive (Map 14, Lots
+    21-4/21-11, Industrial-2), owner/applicant "16 Delta Drive Owner LLC"
+    and "17 & 22 Delta Drive Owner LLC"
+  - A site plan for an **existing industrial building** expanding/
+    reconfiguring trailer parking, security fencing, controlled-access
+    gates, and a mobile loading dock, 10 & 12 Industrial Drive (Map 28,
+    Lots 21C-7/21-7), applicant Austin Schimming CCB, Inc., owner Aero
+    Manchester Fee LLC
+  - A subdivision + lot-line adjustment creating 3 residential lots at 36
+    Pillsbury Road (Map 10, Lot 42, Woodmont Commons PUD / AR-1 zoning),
+    owner Pillsbury Realty Development LLC, applicant Procopio
+    Enterprises, Inc.
+  - A **condo conversion** of the same newly-created lot (Map 10, Lot
+    42-2), same owner/applicant pair
+
+  Every item gives full owner + applicant names, tax map/lot, zoning
+  district, and a plain-English description — no packet or PDF-rendering
+  needed at all. This is a strong argument that **`PdfExtractText` alone
+  (not even keyword scan) on Londonderry's plain "Agenda (PDF)" links is
+  enough** for full signal extraction.
+
+## Sample files downloaded
+
+- `working/londonderry_nh/9.9.2026 agenda.pdf`
+
+## Open items for later
+
+- Sample a "Planning Board Regular Meeting Materials" link too, to check
+  whether it's a full packet or (as seen in Salem) just an index/cover
+  page pointing at documents not directly reachable.
