@@ -59,8 +59,7 @@ specific town.
 - ✅ Lee — `lee_nh.md`
 - ✅ Madbury — `madbury_nh.md`
 - ✅ Barrington — `barrington_nh.md`
-- ✅ Rollinsford — `rollinsford_nh.md` (partial — Google Drive access not
-  fully resolved)
+- ✅ Rollinsford — `rollinsford_nh.md`
 - ✅ Farmington — `farmington_nh.md`
 - ✅ Milton — `milton_nh.md`
 - ✅ Strafford — `strafford_nh.md`
@@ -73,8 +72,7 @@ specific town.
 - ✅ Hudson — `hudson_nh.md`
 - ✅ Litchfield — `litchfield_nh.md`
 - ✅ Merrimack — `merrimack_nh.md`
-- ✅ Pelham — `pelham_nh.md` (partial — Agenda Center access not fully
-  resolved)
+- ✅ Pelham — `pelham_nh.md`
 
 ## Concord area (Merrimack County, eastern/central)
 - ✅ Concord — `concord_nh.md`
@@ -83,8 +81,7 @@ specific town.
 - ✅ Hooksett — `hooksett_nh.md`
 - ✅ Bow — `bow_nh.md`
 - ✅ Chichester — `chichester_nh.md`
-- ✅ Epsom — `epsom_nh.md` (partial — Munibit blob API access not fully
-  resolved)
+- ✅ Epsom — `epsom_nh.md`
 - ✅ Loudon — `loudon_nh.md`
 
 ## South of Lake Winnipesaukee (Belknap County)
@@ -92,7 +89,7 @@ specific town.
 - ✅ Gilmanton — `gilmanton_nh.md`
 - ✅ Belmont — `belmont_nh.md`
 - ✅ Barnstead — `barnstead_nh.md`
-- ✅ Gilford — `gilford_nh.md` (docx format — content not yet analyzed)
+- ✅ Gilford — `gilford_nh.md`
 - ✅ Laconia — `laconia_nh.md`
 
 ---
@@ -103,19 +100,19 @@ Manchester/Concord areas, and Belknap County south of Winnipesaukee) has
 now been researched, each with a `towninfo/<slug>.md` write-up covering
 platform, URL structure, and a sample-document content check.
 
-**Two towns are partial** and flagged as open items rather than fully
-resolved: Rollinsford (Google Drive folder listing not fully explored)
-and Pelham (Agenda Center access pattern not resolved) — access notes are
-still useful, but no sample document was pulled for either. Epsom is
-also partial (Munibit blob-token access not resolved).
+**Rollinsford, Pelham, and Epsom access was fully resolved 2026-09-15**
+(previously flagged partial — Google Drive folder listing/downloads,
+CivicClerk portal embedded in a CivicPlus page, and a Munibit same-
+origin blob token, respectively; see each town's file for the working
+extraction method). `.docx` support (Hampton Falls, Gilford) was also
+added 2026-09-15 and both towns' sample docs analyzed.
 
 **Outstanding cross-town TODO items** (see `TODO.txt`):
-- `.docx` text-extraction tool needed for Hampton Falls, Brentwood, and
-  Gilford (all serve Word docs instead of PDFs for some/all documents).
 - Base64-decode-to-file step needed for hotlink-protected `/media/{id}`
   or `/docview.aspx` endpoints at Concord, Kingston, Madbury, and
   Brentwood (bytes fetched in-session via browser but never written to
-  disk).
+  disk) — Brentwood also still needs `.docx` support wired through once
+  its files are actually reachable.
 
 **Platforms found across the project** (8 distinct, beyond CivicPlus):
 Municipal One (Brentwood), Legend Software (Northwood, Gilford),

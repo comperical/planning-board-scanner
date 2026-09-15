@@ -63,6 +63,22 @@ CREATE TABLE IF NOT EXISTS town (
     state               TEXT                   -- e.g. "NH"
 );
 
+-- One row per pass of scanning a town's site: visiting its pages and
+-- looking for new files to download - as opposed to analysis_log, which is
+-- about analyzing an already-downloaded document for real estate projects.
+-- alpha_time_est/omega_time_est are the estimated start/end of the scan
+-- (Greek alpha/omega, i.e. "first"/"last") - estimates, not necessarily
+-- exact, since a scan is an interactive process (clicking through pages,
+-- following links) rather than one atomic operation with a precise
+-- start/end timestamp.
+CREATE TABLE IF NOT EXISTS scan_log (
+    id                  INTEGER PRIMARY KEY,
+    town_id             INTEGER NOT NULL REFERENCES town(id),
+    alpha_time_est      TEXT,              -- UTC estimate of when the scan pass began
+    omega_time_est      TEXT,              -- UTC estimate of when the scan pass ended
+    notes               TEXT               -- e.g. "checked Agenda Center back to Jan 2026, found 3 new PDFs"
+);
+
 CREATE TABLE IF NOT EXISTS documents (
     id                  INTEGER PRIMARY KEY,
     file_path           TEXT NOT NULL UNIQUE,  -- e.g. "working/dover_nh/2026.09.22.Materials.pdf"
@@ -73,7 +89,8 @@ CREATE TABLE IF NOT EXISTS documents (
     page_count          INTEGER,
     metadata_json       TEXT,                  -- PDF metadata dict (PdfInfo), as JSON text
     info_scanned_at     TEXT,                  -- UTC timestamp of the last PdfInfo recording
-    keywords_scanned_at TEXT                   -- UTC timestamp of the last keyword-scan recording
+    keywords_scanned_at TEXT,                  -- UTC timestamp of the last keyword-scan recording
+    first_scan_id       INTEGER REFERENCES scan_log(id)  -- the scan_log pass that first discovered this file
 );
 
 CREATE TABLE IF NOT EXISTS pages (
@@ -137,6 +154,7 @@ CREATE TABLE IF NOT EXISTS analysis_log (
     notes               TEXT
 );
 
+CREATE INDEX IF NOT EXISTS idx_scan_log_town ON scan_log(town_id);
 CREATE INDEX IF NOT EXISTS idx_documents_town ON documents(town_id);
 CREATE INDEX IF NOT EXISTS idx_pages_document ON pages(document_id);
 CREATE INDEX IF NOT EXISTS idx_keyword_hits_document ON keyword_hits(document_id);
@@ -174,6 +192,14 @@ def _run_migrations(conn):
     if "page_number" not in cols:
         conn.execute("ALTER TABLE project_documents ADD COLUMN page_number INTEGER")
 
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(documents)")}
+    if "first_scan_id" not in cols:
+        conn.execute("ALTER TABLE documents ADD COLUMN first_scan_id INTEGER REFERENCES scan_log(id)")
+
+    # Index creation deferred here (rather than in SCHEMA) since the column
+    # above may not exist yet on an older database at the point SCHEMA runs.
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_first_scan ON documents(first_scan_id)")
+
 
 def _town_slug_from_path(file_path):
     """Best-effort town slug from a "working/<town>/<file>.pdf" path, e.g.
@@ -207,11 +233,78 @@ def get_or_create_town(conn, slug):
     return cur.lastrowid
 
 
-def upsert_document(conn, file_path, *, source_url=None, doc_date=None):
+def create_scan_log(conn, town_slug, *, alpha_time_est=None, notes=""):
+    """Create a new scan_log row for town_slug (creates the town row as a
+    side effect, like create_project) and return its id - the start of one
+    pass of visiting that town's site and looking for new files to
+    download, distinct from analysis_log (which is about analyzing an
+    already-downloaded document for real estate projects). alpha_time_est
+    defaults to the current UTC time (per SQLite's datetime('now')) unless
+    given explicitly. Close the pass out with close_scan_log/
+    update_scan_log once it's done."""
+
+    town_id = get_or_create_town(conn, town_slug)
+
+    cur = conn.execute(
+        "INSERT INTO scan_log (town_id, alpha_time_est, notes) "
+        "VALUES (?, COALESCE(?, datetime('now')), ?)",
+        (town_id, alpha_time_est, notes),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def close_scan_log(conn, scan_id, *, notes=None):
+    """Convenience for the common end-of-scan case: stamp omega_time_est as
+    the current UTC time, and overwrite notes if given (leaves any existing
+    notes alone otherwise). For anything other than "close it out now", use
+    update_scan_log directly."""
+
+    if notes is not None:
+        conn.execute(
+            "UPDATE scan_log SET omega_time_est = datetime('now'), notes = ? WHERE id = ?",
+            (notes, scan_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE scan_log SET omega_time_est = datetime('now') WHERE id = ?",
+            (scan_id,),
+        )
+    conn.commit()
+
+
+def update_scan_log(conn, scan_id, *, alpha_time_est=None, omega_time_est=None, notes=None):
+    """Update alpha_time_est/omega_time_est/notes on an existing scan_log
+    row - for manual correction of a scan pass's recorded times (e.g. it was
+    logged late). For the ordinary "mark this scan done now" case, prefer
+    close_scan_log. Only the fields given (not None) are changed."""
+
+    fields, values = [], []
+    if alpha_time_est is not None:
+        fields.append("alpha_time_est = ?")
+        values.append(alpha_time_est)
+    if omega_time_est is not None:
+        fields.append("omega_time_est = ?")
+        values.append(omega_time_est)
+    if notes is not None:
+        fields.append("notes = ?")
+        values.append(notes)
+
+    assert fields, "Nothing to update - pass alpha_time_est/omega_time_est/notes"
+
+    values.append(scan_id)
+    conn.execute(f"UPDATE scan_log SET {', '.join(fields)} WHERE id = ?", values)
+    conn.commit()
+
+
+def upsert_document(conn, file_path, *, source_url=None, doc_date=None, first_scan_id=None):
     """Ensure a documents row exists for file_path and return its id.
     Safe to call repeatedly - later calls don't clobber fields already set
     by record_pdf_info/record_keyword_scan unless source_url/doc_date are
-    newly given. doc_date, if given, must be ISO "YYYY-MM-DD"."""
+    newly given. doc_date, if given, must be ISO "YYYY-MM-DD". first_scan_id,
+    if given, is only ever set once - it records the scan_log pass that
+    first discovered this file, so a later call can't overwrite an
+    already-set value (COALESCE keeps the existing one)."""
 
     assert doc_date is None or DATE_RE.match(doc_date), \
         f"doc_date must be ISO YYYY-MM-DD, got {doc_date!r}"
@@ -222,13 +315,14 @@ def upsert_document(conn, file_path, *, source_url=None, doc_date=None):
 
     conn.execute(
         """
-        INSERT INTO documents (file_path, town_id, source_url, doc_date)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO documents (file_path, town_id, source_url, doc_date, first_scan_id)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(file_path) DO UPDATE SET
             source_url = COALESCE(excluded.source_url, documents.source_url),
-            doc_date = COALESCE(excluded.doc_date, documents.doc_date)
+            doc_date = COALESCE(excluded.doc_date, documents.doc_date),
+            first_scan_id = COALESCE(documents.first_scan_id, excluded.first_scan_id)
         """,
-        (file_path, town_id, source_url, doc_date),
+        (file_path, town_id, source_url, doc_date, first_scan_id),
     )
     conn.commit()
     row = conn.execute(

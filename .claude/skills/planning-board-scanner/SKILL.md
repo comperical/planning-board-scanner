@@ -69,6 +69,46 @@ rather than working around it.
 - `wwiocode/pyscript/plan_entry.py` + `plan_util.py` - the tool entry point
   and its implementation.
 
+## Logging a scan pass
+
+Every time you sit down to check a town's site for new documents - whether
+it's the first-ever recon of a new town or a routine re-check of one
+already set up - bracket that work with `StartScanLog`/`EndScanLog`. This
+writes to the `scan_log` table (see `plan_db.py`), which is distinct from
+`analysis_log`: `scan_log` records *finding* files by visiting a town's
+site, `analysis_log` records *analyzing* an already-downloaded file for
+projects.
+
+```bash
+wwiocode/pyscript/plan_entry.py StartScanLog town=example_town_nh
+# -> prints the new scan_id, e.g. "Started scan_log 12 for example_town_nh. ..."
+```
+
+Then, for every file you download and register during this pass, pass that
+same `scan_id=` to `IngestPdfTool` (see Phase 2 below) so
+`documents.first_scan_id` records which scan pass first found it:
+
+```bash
+wwiocode/pyscript/plan_entry.py IngestPdfTool pdf=working/example_town_nh/2026.09.22_Agenda.pdf scan_id=12
+```
+
+`first_scan_id` is only ever set once - re-running `IngestPdfTool` later
+(without `scan_id=`, or re-ingesting to refresh keyword hits) never
+clobbers it, so it's safe to pass `scan_id=` only on the call that
+immediately follows discovery.
+
+When you're done checking the site, close the scan out with a short note on
+what you found (or didn't):
+
+```bash
+wwiocode/pyscript/plan_entry.py EndScanLog scan_id=12 notes="checked Agenda Center back to Jan 2026, found 2 new PDFs"
+```
+
+Do this even if the pass turned up nothing new (`notes="no new files since last scan"`) -
+same principle as always calling `LogAnalysis` in the analyze-planning-file
+skill: a scan pass with no `scan_log` row is invisible to anything that
+later wants to know when a town was last checked.
+
 ## Phase 1: researching a town's site
 
 Use the `playwright-cli` skill, always with the `planscan` session name
@@ -144,6 +184,7 @@ Tools:
 | `PdfInfo` | JSON: metadata, page count, file size, per-page text-length/scanned flag. `pdf=working/<path>.pdf` |
 | `PdfKeywordScan` | JSON: page/snippet hits for development-project terms (site plan, subdivision, residential, commercial, variance, ...). `pdf=working/<path>.pdf`, override keywords with `keywords=a,b,c` |
 | `PdfRenderPages` | Renders pages to PNG via PyMuPDF (no poppler needed) - useful for large scanned "materials packet" PDFs. `pdf=working/<path>.pdf`. Caps at 30 pages by default; pass `pages=1-6,10` to target specific pages or go further |
+| `IngestPdfTool` | The single-call equivalent of `PdfInfo` + `PdfKeywordScan` + full text extraction, but writes straight into the SQLite DB (see `plan_db.py`) instead of `working/OUTPUT.txt` - the usual way to register a file found during a scan pass. Also accepts `.docx`. `pdf=working/<path>.pdf\|.docx` `[source_url=...]` `[date=YYYY-MM-DD]` `[scan_id=<id>]` - see "Logging a scan pass" above for `scan_id=` |
 
 Example:
 

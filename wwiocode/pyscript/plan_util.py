@@ -8,6 +8,7 @@ import urllib.parse
 sys.path.append("/opt/userdata/busicode/clientscript")
 
 import client_util as CSUTIL
+import docx as docxlib  # python-docx
 import fitz  # PyMuPDF
 import requests
 
@@ -62,7 +63,9 @@ def resolve_input_pdf(pdf_arg):
     """Validate and resolve a caller-supplied pdf= path argument. Enforces,
     before any work is done: the argument must be given, must start with
     "working/", must not escape WORK_DIR (e.g. via ".."), and must already
-    exist as a file."""
+    exist as a file. Despite the name/arg convention (kept for compatibility
+    with existing callers), this accepts .docx as well as .pdf - see
+    _is_docx/_get_docx_full_text for how each is handled downstream."""
 
     candidate = _resolve_under_workdir(pdf_arg, "pdf")
 
@@ -146,9 +149,38 @@ def insert_doc_info():
 
 
 
+def _is_docx(path):
+    return Path(path).suffix.lower() == ".docx"
+
+
+def _get_docx_full_text(docxpath):
+    """Join every paragraph and table-cell string in the .docx into one text
+    blob. .docx has no reliable notion of "pages" without actually rendering
+    it (page breaks are a print-time layout detail, not stored positions), so
+    callers treat the whole document as a single page."""
+
+    doc = docxlib.Document(docxpath)
+
+    parts = [p.text for p in doc.paragraphs if p.text.strip()]
+
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                if cell.text.strip():
+                    parts.append(cell.text)
+
+    return "\n".join(parts).strip()
+
+
 def _gen_page_text(pdfpath, *, ocr_fallback=True):
-    """Yield the text of each page of pdfpath in order. Falls back to OCR for
-    scanned/image-only pages (no selectable text layer) when ocr_fallback is set."""
+    """Yield the text of each "page" of pdfpath in order. For a PDF, falls
+    back to OCR for scanned/image-only pages (no selectable text layer) when
+    ocr_fallback is set. For a .docx, yields exactly one page - see
+    _get_docx_full_text."""
+
+    if _is_docx(pdfpath):
+        yield _get_docx_full_text(pdfpath)
+        return
 
     with fitz.open(pdfpath) as doc:
         for page in doc:
@@ -275,34 +307,70 @@ def get_pdf_page_texts(pdf_arg):
     return list(_gen_page_text(inpath))
 
 
+def _extract_docx_info(inpath):
+    """docx counterpart to the fitz-based branch of extract_pdf_info: no
+    per-page dimensions (docx has no fixed page geometry), so the whole
+    document is reported as a single "page" - consistent with
+    _get_docx_full_text treating it as one page of text."""
+
+    doc = docxlib.Document(inpath)
+    fulltext = _get_docx_full_text(inpath)
+
+    props = doc.core_properties
+    metadata = {
+        "title": props.title,
+        "author": props.author,
+        "created": props.created.isoformat() if props.created else None,
+        "modified": props.modified.isoformat() if props.modified else None,
+    }
+
+    return {
+        "source_path": str(inpath),
+        "file_size_bytes": inpath.stat().st_size,
+        "page_count": 1,
+        "metadata": {k: v for k, v in metadata.items() if v is not None},
+        "pages": [{
+            "page": 1,
+            "width": None,
+            "height": None,
+            "text_chars": len(fulltext),
+            "has_selectable_text": bool(fulltext),
+        }],
+    }
+
+
 def extract_pdf_info(pdf_arg):
-    """Write a JSON summary of the given PDF to OUTPUT_PATH: metadata, page
-    count/size, and per-page stats (dimensions, text length, whether OCR
-    would be needed)."""
+    """Write a JSON summary of the given PDF/docx to OUTPUT_PATH: metadata,
+    page count/size, and per-page stats (dimensions, text length, whether OCR
+    would be needed). A .docx has no page geometry, so it's always reported
+    as a single page - see _extract_docx_info."""
 
     inpath = resolve_input_pdf(pdf_arg)
     outpath = get_output_path()
 
-    with fitz.open(inpath) as doc:
+    if _is_docx(inpath):
+        info = _extract_docx_info(inpath)
+    else:
+        with fitz.open(inpath) as doc:
 
-        def gen_pages():
-            for pagenum, page in enumerate(doc):
-                pagetext = page.get_text().strip()
-                yield {
-                    "page": pagenum + 1,
-                    "width": page.rect.width,
-                    "height": page.rect.height,
-                    "text_chars": len(pagetext),
-                    "has_selectable_text": bool(pagetext),
-                }
+            def gen_pages():
+                for pagenum, page in enumerate(doc):
+                    pagetext = page.get_text().strip()
+                    yield {
+                        "page": pagenum + 1,
+                        "width": page.rect.width,
+                        "height": page.rect.height,
+                        "text_chars": len(pagetext),
+                        "has_selectable_text": bool(pagetext),
+                    }
 
-        info = {
-            "source_path": str(inpath),
-            "file_size_bytes": inpath.stat().st_size,
-            "page_count": doc.page_count,
-            "metadata": dict(doc.metadata or {}),
-            "pages": list(gen_pages()),
-        }
+            info = {
+                "source_path": str(inpath),
+                "file_size_bytes": inpath.stat().st_size,
+                "page_count": doc.page_count,
+                "metadata": dict(doc.metadata or {}),
+                "pages": list(gen_pages()),
+            }
 
     with open(outpath, "w", encoding="utf-8") as fh:
         json.dump(info, fh, indent=2)
@@ -393,6 +461,8 @@ def render_pdf_pages(dpi, pages_str, pdf_arg):
     further."""
 
     inpath = resolve_input_pdf(pdf_arg)
+    assert not _is_docx(inpath), \
+        f"{inpath} is a .docx - PdfRenderPages only supports PDF (no page-image equivalent for docx)"
     outdir = get_output_pages_dir()
 
     with fitz.open(inpath) as doc:

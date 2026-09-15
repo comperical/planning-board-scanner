@@ -112,10 +112,10 @@ class FetchUrlTool:
 
 
 class PdfExtractTextTool:
-    """Extract the full text of pdf= (OCR fallback per scanned page) to
-    working/OUTPUT.txt.
+    """Extract the full text of pdf= (OCR fallback per scanned page; a
+    .docx is read directly, no OCR involved) to working/OUTPUT.txt.
 
-    Args: pdf=working/<path>.pdf
+    Args: pdf=working/<path>.pdf|.docx
     """
 
     def run_op(self, argmap):
@@ -126,9 +126,10 @@ class PdfExtractTextTool:
 class PdfInfoTool:
     """Write a JSON summary of pdf= - metadata, page count, file size, and
     per-page stats (dimensions, text length, whether it looks scanned) - to
-    working/OUTPUT.txt.
+    working/OUTPUT.txt. A .docx has no page geometry, so it's always
+    reported as a single page.
 
-    Args: pdf=working/<path>.pdf
+    Args: pdf=working/<path>.pdf|.docx
     """
 
     def run_op(self, argmap):
@@ -140,9 +141,10 @@ class PdfKeywordScanTool:
     """Scan pdf='s text for development-project keywords (site plan,
     subdivision, residential, commercial, ...) and write JSON hits with page
     numbers and snippets to working/OUTPUT.txt. Pass keywords=...
-    (comma-separated) to override the default list.
+    (comma-separated) to override the default list. A .docx has no real
+    pages, so any hits are reported as page 1.
 
-    Args: pdf=working/<path>.pdf  [keywords=a,b,c]
+    Args: pdf=working/<path>.pdf|.docx  [keywords=a,b,c]
     """
 
     def run_op(self, argmap):
@@ -156,7 +158,8 @@ class PdfRenderPagesTool:
     """Render pages of pdf= to PNG images (one file per page) inside
     working/OUTPUT_PAGES/. With no pages= given, renders the whole document
     up to a safety cap (see MAX_RENDER_PAGES_DEFAULT); pass an explicit page
-    range to go beyond that on purpose.
+    range to go beyond that on purpose. PDF only - no page-image equivalent
+    for .docx.
 
     Args: pdf=working/<path>.pdf  [dpi=150]  [pages=1-6,10]
     """
@@ -173,19 +176,28 @@ class IngestPdfTool:
     """Run PdfInfo + PdfKeywordScan (+ full text extraction, by default) on
     pdf= and record it all straight into the SQLite database (see
     plan_db.py) - the single-call equivalent of PdfInfoTool +
-    PdfKeywordScanTool + UpdateDbTool, for wiring a scan's downloaded PDFs
-    into the DB without leaving the plan_entry.py allowlist. Upserts by
-    file_path (creating the town row as a side effect); safe to re-run - a
-    re-scan replaces that document's previously recorded pages/keyword
-    hits/text rather than duplicating them.
+    PdfKeywordScanTool + UpdateDbTool, for wiring a scan's downloaded
+    PDFs/docx into the DB without leaving the plan_entry.py allowlist.
+    Upserts by file_path (creating the town row as a side effect); safe to
+    re-run - a re-scan replaces that document's previously recorded
+    pages/keyword hits/text rather than duplicating them.
 
-    Full-page text extraction (OCR fallback per scanned page, via
+    Also accepts a .docx file (e.g. towns whose site posts Word documents
+    instead of PDFs) - it's read directly (no OCR) and recorded as a
+    single-page document, since .docx has no real page boundaries.
+
+    Full-page text extraction (OCR fallback per scanned PDF page, via
     plan_util.get_pdf_page_texts) is the slow step for a large scanned
     packet - pass with_text=false to skip it (PdfInfo/PdfKeywordScan still
     run) and extract text separately/later if needed.
 
-    Args: pdf=working/<path>.pdf  [source_url=...]  [date=YYYY-MM-DD]
-          [keywords=a,b,c]  [with_text=true]
+    Pass scan_id=<id> (from StartScanLog) if this file was just discovered
+    during a scan pass - it's recorded as documents.first_scan_id, and only
+    ever set once (a later re-run without scan_id, or with a different one,
+    won't overwrite it).
+
+    Args: pdf=working/<path>.pdf|.docx  [source_url=...]  [date=YYYY-MM-DD]
+          [keywords=a,b,c]  [with_text=true]  [scan_id=<id>]
     """
 
     def run_op(self, argmap):
@@ -194,8 +206,12 @@ class IngestPdfTool:
         date = argmap.getStr("date", "") or None
         keywords = argmap.getStr("keywords", UTIL.DEFAULT_SCAN_KEYWORDS)
         with_text = argmap.getBit("with_text", True)
+        scan_id = argmap.getInt("scan_id", -1)
 
         conn = DB.get_connection()
+
+        if scan_id != -1:
+            DB.upsert_document(conn, pdf, source_url=source_url, first_scan_id=scan_id)
 
         UTIL.extract_pdf_info(pdf)
         info = DB.load_json_output()
@@ -215,6 +231,55 @@ class IngestPdfTool:
 
         print(f"Ingested {pdf}: {info['page_count']} pages, "
               f"{len(scan.get('hits', []))} keyword hit(s)")
+
+
+class StartScanLogTool:
+    """Start a new scan_log row for town= - marks the beginning of one pass
+    of visiting that town's site and looking for new files to download
+    (see plan_db.py's scan_log table; distinct from analysis_log, which
+    tracks analyzing an already-downloaded document for projects).
+    alpha_time_est is stamped as the current time. Creates the town row as
+    a side effect if it doesn't exist yet.
+
+    Prints the new scan_id - pass it as scan_id=<id> to IngestPdfTool for
+    every file discovered during this pass (so documents.first_scan_id
+    records which scan found it), then run EndScanLog scan_id=<id> once the
+    pass is done.
+
+    Args: town=<slug>  [notes=...]
+    """
+
+    def run_op(self, argmap):
+        town = argmap.getStr("town", "")
+        notes = argmap.getStr("notes", "")
+
+        assert town, "town=<slug> is required"
+
+        conn = DB.get_connection()
+        scan_id = DB.create_scan_log(conn, town, notes=notes)
+        print(f"Started scan_log {scan_id} for {town}. Pass scan_id={scan_id} to IngestPdfTool "
+              f"for each newly discovered file, then run EndScanLog scan_id={scan_id} when done.")
+
+
+class EndScanLogTool:
+    """Close out scan_id= (from StartScanLog) - stamps omega_time_est as
+    the current time. Pass notes=... to overwrite the scan_log row's notes
+    with a summary of what the pass found (e.g. "checked Agenda Center back
+    to Jan 2026, found 3 new PDFs") - omitting it leaves any notes already
+    set (e.g. from StartScanLog) unchanged.
+
+    Args: scan_id=<id>  [notes=...]
+    """
+
+    def run_op(self, argmap):
+        scan_id = argmap.getInt("scan_id", -1)
+        notes = argmap.getStr("notes", "") or None
+
+        assert scan_id != -1, "scan_id=<id> is required"
+
+        conn = DB.get_connection()
+        DB.close_scan_log(conn, scan_id, notes=notes)
+        print(f"Closed scan_log {scan_id}" + (f": {notes}" if notes else ""))
 
 
 class CreateProjectTool:

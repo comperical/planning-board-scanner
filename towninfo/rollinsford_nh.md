@@ -1,34 +1,50 @@
 # Rollinsford, NH — Planning Board Web Access
 
-Investigated: 2026-09-14
+Investigated: 2026-09-14. Access resolved: 2026-09-15 (scan_log #2).
 
 Rollinsford is the only town in this project whose planning documents are
 hosted entirely on **Google Drive** (see PATTERNS.md), not any town-CMS
 file store. Main site is custom WordPress-style (`rollinsford.nh.us`),
 but only links out to shared Drive folders. No bot protection on the town
-site itself. **Partial — no sample PDF downloaded.**
+site itself.
 
-## Platform notes
+## Platform notes — working access path
 
 - Planning Board hub: `/boards-committees/planning-board/` — description/
   members only, no documents.
-- **Minutes & Agendas page**: `/minutes-agendas/` — accordion, one
-  section per board. Clicking "Planning Board" reveals three Google
-  Drive shared-folder links (not individual document links): "Public
-  Hearing Notices", "Meeting Minutes", "Site Review Documents".
-- Opening a folder link loads the standard Drive folder UI (no sign-in
-  required, `?usp=share_link` share type), but the file listing renders
-  via client-side JS inside an iframe that didn't finish populating in
-  this session's single-snapshot check — actual filenames not confirmed.
-- This access pattern is fundamentally different from every other town:
-  there's no direct PDF URL to `FetchUrl` — Drive's own listing/per-file
-  `/uc?export=download&id=` conventions would need to be worked out.
+- **Minutes & Agendas page**: `/minutes-agendas/` — accordion, one section
+  per board. The "Planning Board" section link must actually be **clicked**
+  (its content isn't in the static page load) to reveal three Google Drive
+  shared-folder links: **Public Hearing Notices**, **Meeting Minutes**,
+  **Site Review Documents**.
+- **Meeting Minutes** folder nests by year as subfolders (`2008-2011 All
+  PB Files`, `2014_ PB Minutes` ... `2026: PB Mintues` [sic, typo in the
+  folder name itself]) — open the year subfolder to reach actual PDFs.
+  Filenames are inconsistent/free-text (e.g. `RPB Mins 7.14. 2026
+  DRAFT.pdf`, `RPB Non Public 3.3.26.pdf`).
+- **Downloading a file**: click the file row to select it, then click the
+  "Download" icon button that appears. **The first click per session
+  often 503s** behind a Google reCAPTCHA challenge
+  (`drive.usercontent.google.com/download?...&confirm=t` returns 503) —
+  clicking Download a second time on the same file succeeds and
+  `playwright-cli` auto-saves it to `.playwright-cli/<name>.pdf`, same as
+  a normal browser download. No `FetchUrl`/base64 workaround needed once
+  past that hiccup.
+- **Public Hearing Notices** folder was **empty** as of 2026-09-15 (no
+  sign-in wall issue - genuinely no files in it right now, confirmed via
+  screenshot). Worth re-checking on future scans in case it starts
+  getting used, since it's the folder most likely to carry rich per-
+  project detail (site plans, applicant info) if the town starts filling
+  it.
+- Sample doc downloaded: `RPB Mins 7.14.2026 DRAFT.pdf` (3 pg, from the
+  2026 Meeting Minutes subfolder).
 
 ## Open items for later
 
-- Finish exploring the three Drive folders (wait for the file list to
-  load) to get actual document names/dates and confirm whether
-  individual files are downloadable via plain `FetchUrl` (Drive
-  `/uc?export=download&id=` URLs are typically fetchable without a
-  browser once the file id is known) or need the same in-page-fetch
-  treatment as hotlink-protected towns.
+- Haven't yet checked the **Site Review Documents** folder (likely the
+  richest source of per-project detail, similar to other towns'
+  "materials packet" documents) - do this on the next scan pass.
+- Filenames don't reliably carry the meeting date in a parseable format
+  (compare `RPB Mins 7.14. 2026 DRAFT.pdf` vs `RPB Mins 6.2.26.pdf`) -
+  `doc_date` will likely need to be read out of each PDF by hand rather
+  than parsed from the filename.

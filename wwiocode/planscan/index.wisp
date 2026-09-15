@@ -60,7 +60,8 @@ function getNavSection()
 {
     const linkdata = [
         ["fa-solid fa-file-lines", "documents", "Documents"],
-        ["fa-solid fa-city", "towns", "Towns"]
+        ["fa-solid fa-city", "towns", "Towns"],
+        ["fa-solid fa-magnifying-glass", "scan_log", "Scan Log"]
     ];
 
     return linkdata.map(composeLinkDiv).join("\n");
@@ -130,16 +131,19 @@ function redisplay()
 
 <h3>PlanScan</h3>
 
-<table width="70%" class="basic-table">
+<table width="95%" class="basic-table">
 
 <tr>
-<td width="40%" valign="top">
+<td width="35%" valign="top">
 
 <center>
 <h3>Navigation</h3>
 </center>
 
 <div id="nav_section"></div>
+
+</td>
+<td width="35%" valign="top">
 
 </td>
 <td valign="top">

@@ -67,9 +67,6 @@
 	text-align: left;
 }
 
-.project-row {
-	cursor: pointer;
-}
 </style>
 
 <script>
@@ -231,7 +228,7 @@ function getEditPageInfo() {
 	<th width="10%">Page</th>
 	</tr>
 	${projectlinklist.map(entry => `
-	<tr class="project-row" onclick="javascript:showProjectModal(${entry.project.getId()})">
+	<tr class="editable" onclick="javascript:showProjectModal(${entry.project.getId()})">
 	<td>${entry.project.getId()}</td>
 	<td class="left-align">${entry.project.getShortDesc() || ""}</td>
 	<td>${getPageLinkHtml(item, entry.link.getPageNumber())}</td>

@@ -1,18 +1,17 @@
 PLANSCAN TODO
 =============
 
-- Build a .docx text-extraction tool (parallel to PdfExtractText/
-  PdfKeywordScan/etc.) for towns whose site posts Word documents instead of
-  PDFs. Confirmed cases: Hampton Falls, NH (towninfo/hampton_falls_nh.md,
-  CivicPlus Agenda Center), Brentwood, NH (towninfo/brentwood_nh.md,
-  Municipal One platform), and Gilford, NH (towninfo/gilford_nh.md,
-  Legend Software platform) - these serve
-  application/vnd.openxmlformats-officedocument.wordprocessingml.document,
-  which the current PDF-only toolchain in wwiocode/pyscript/plan_entry.py
-  cannot process. Sample files already downloaded (Hampton Falls only, see
-  hotlink item below for Brentwood):
-  working/hampton_falls_nh/2026-08-25 PB Agenda.docx,
-  working/hampton_falls_nh/_06232026-147 (rename to .docx).
+- [DONE 2026-09-15] .docx text-extraction support was added to
+  wwiocode/pyscript/plan_util.py (python-docx, installed in the KitchenSink
+  venv) - PdfInfoTool/PdfKeywordScanTool/PdfExtractTextTool/IngestPdfTool
+  all accept pdf=working/<path>.docx now, treating the whole document as a
+  single page (docx has no real page boundaries). PdfRenderPagesTool
+  remains PDF-only (no page-image equivalent for docx). Ingested the 3
+  known .docx cases: Hampton Falls, NH (2026-08-25 PB Agenda.docx and
+  _06232026-147, renamed to _06232026-147.docx) and Gilford, NH
+  (PB_Notice_for_August_17_2026_jba.docx). Brentwood, NH's docx files are
+  still blocked - see the hotlink item below, that town also needs the
+  base64 workaround before its files even reach disk.
 
 - Add a pre-approved way to decode a base64 blob (from a playwright-cli
   in-page `fetch()`) back into a real file on disk, for towns whose file
@@ -26,4 +25,16 @@ PLANSCAN TODO
   an ad hoc Python/base64 snippet outside the project's pre-approved
   command set, so these towns' agenda/minutes files were fetched as base64
   in-session but never written to disk.
+
+- Add a `scan_log` table (plan_db.py) distinct from `analysis_log`.
+  `analysis_log` records a manual pass over one already-downloaded document
+  looking for projects; there's no equivalent record of when a town's
+  website was last checked/re-scanned for new documents to download in the
+  first place. Right now "least recently scanned" can only be estimated by
+  proxy (working/<town>/ file mtimes, or the towninfo/*.md "Investigated:"
+  date, which is really "last researched for site-access notes", not "last
+  checked for new files"). Want one row per scan pass, keyed by town_id,
+  with a timestamp (and maybe a note/counts of new files found) - lets the
+  towns.wisp page's "Next Up" logic (and any future scan-scheduling) be
+  driven by real data instead of file mtimes.
 
