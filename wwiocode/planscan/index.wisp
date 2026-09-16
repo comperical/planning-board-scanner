@@ -59,12 +59,16 @@ function composeLinkDiv(linktup)
 function getNavSection()
 {
     const linkdata = [
-        ["fa-solid fa-file-lines", "documents", "Documents"],
         ["fa-solid fa-city", "towns", "Towns"],
         ["fa-solid fa-magnifying-glass", "scan_log", "Scan Log"]
     ];
 
     return linkdata.map(composeLinkDiv).join("\n");
+}
+
+function getDocumentsSection()
+{
+    return composeLinkDiv(["fa-solid fa-file-lines", "documents", "Documents"]);
 }
 
 // Documents with zero analysis_log rows - same definition NextToAnalyze uses
@@ -116,6 +120,7 @@ function redisplay()
     U.populateSpanData({
         "header_info" : PSUTIL.getSimpleHeader(),
         "nav_section" : getNavSection(),
+        "doc_section" : getDocumentsSection(),
         "dash_table" : getDashBoardTable()
     });
 }
@@ -145,14 +150,22 @@ function redisplay()
 </td>
 <td width="35%" valign="top">
 
+<center>
+<h3>Documents</h3>
+</center>
+
+<center>
+<div id="doc_section"></div>
+</center>
+
 </td>
 <td valign="top">
 
 <center>
 <h3>Dashboard</h3>
-</center>
 
 <div id="dash_table"></div>
+</center>
 
 </td>
 </tr>
