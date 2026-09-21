@@ -1,5 +1,7 @@
 # Newmarket, NH — Planning Board Web Access
 
+> **Update 2026-09-21 - better method:** skip the portal UI. From any `newmarketnh.portal.civicclerk.com` page, in-page `fetch('https://newmarketnh.api.civicclerk.com/v1/Events?$filter=startDateTime ge 2026-07-01T00:00:00Z&$orderby=startDateTime desc')` (CORS-open) lists events with `publishedFiles` (type + fileId). Download each via in-page `fetch(.../v1/Meetings/GetMeetingFileStream(fileId={id},plainText=false))` -> blob -> `<a download>` click -> `ClaimDownload`. The portal's home feed only shows from the current month on.
+
 Investigated: 2026-09-12
 
 Platform: **CivicClerk** SPA portal (see PATTERNS.md), a different

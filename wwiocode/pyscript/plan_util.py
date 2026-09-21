@@ -286,6 +286,11 @@ def fetch_url(target, dest_arg=""):
 
     if destdir is not None:
         outpath = destdir / _filename_from_response(target, resp)
+        # Agenda Center Minutes (and other endpoints with no
+        # Content-Disposition) fall back to the URL's last segment, which
+        # can collide with a different document already saved there.
+        assert not outpath.exists(), (
+            f"{outpath} already exists - refusing to overwrite; fetch without dest= and rename")
     else:
         WORK_DIR.mkdir(parents=True, exist_ok=True)
         outpath = WORK_DIR / "TARGET.pdf"

@@ -49,10 +49,19 @@ DB_UPDATE_PATH = WORK_DIR / "DB_UPDATE.json"
 # tool in plan_entry.py / sync_project_from_files() below): to update
 # project <id>, write working/project_edit/<id>.md (the full_md_text field
 # - free-form markdown) and/or working/project_edit/<id>.json (every other
-# updatable field, currently just {"short_desc": "..."}), then run the tool
+# updatable field: {"short_desc": "...", "tag_set": [...]}), then run the tool
 # to apply both to the DB. Either file may be omitted to leave that side
 # unchanged.
 PROJECT_EDIT_DIR = WORK_DIR / "project_edit"
+
+# The controlled vocabulary for projects.tag_set - parsed from this file's
+# tag tables (see load_tag_vocabulary), so the doc is the single source of
+# truth for which tags exist.
+PROJECT_TAGS_PATH = WORK_DIR.parent / "PROJECT_TAGS.md"
+
+# Tag groups (the "### N. ..." sections of PROJECT_TAGS.md) that must have
+# exactly one tag on every tagged project.
+EXACTLY_ONE_TAG_GROUPS = {1: "sector", 4: "stage"}
 
 
 SCHEMA = """
@@ -130,7 +139,8 @@ CREATE TABLE IF NOT EXISTS projects (
     id                  INTEGER PRIMARY KEY,
     town_id             INTEGER REFERENCES town(id),
     short_desc          TEXT,              -- one-line summary, e.g. "150 Portsmouth Blvd - 3-building multifamily"
-    full_md_text        TEXT               -- full markdown write-up: description, status, addresses, applicant, etc.
+    full_md_text        TEXT,              -- full markdown write-up: description, status, addresses, applicant, etc.
+    tag_set             TEXT DEFAULT ''    -- comma-separated set of tags, e.g. "residential,multifamily"; '' = no tags
 );
 
 -- Links a project to every document that mentions it (a project is
@@ -195,6 +205,10 @@ def _run_migrations(conn):
     cols = {row[1] for row in conn.execute("PRAGMA table_info(documents)")}
     if "first_scan_id" not in cols:
         conn.execute("ALTER TABLE documents ADD COLUMN first_scan_id INTEGER REFERENCES scan_log(id)")
+
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(projects)")}
+    if "tag_set" not in cols:
+        conn.execute("ALTER TABLE projects ADD COLUMN tag_set TEXT DEFAULT ''")
 
     # Index creation deferred here (rather than in SCHEMA) since the column
     # above may not exist yet on an older database at the point SCHEMA runs.
@@ -449,9 +463,57 @@ def create_project(conn, town_slug, short_desc="", full_md_text=""):
     return cur.lastrowid
 
 
-def update_project(conn, project_id, *, short_desc=None, full_md_text=None):
-    """Update short_desc and/or full_md_text on an existing project row.
-    Only the fields given (not None) are changed."""
+def load_tag_vocabulary(path=PROJECT_TAGS_PATH):
+    """Return {tag: group_number} parsed from PROJECT_TAGS.md: every
+    backticked tag in the first column of a table row, under a
+    "### <N>. ..." group heading. Dict order follows the file, which is the
+    canonical tag order."""
+
+    vocab = {}
+    group = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        heading = re.match(r"###\s+(\d+)\.", line)
+        if heading:
+            group = int(heading.group(1))
+            continue
+        cell = re.match(r"\|\s*`([a-z0-9-]+)`\s*\|", line)
+        if cell and group is not None:
+            vocab[cell.group(1)] = group
+
+    assert vocab, f"No tags found in {path}"
+    return vocab
+
+
+def normalize_tag_set(tags, vocab=None):
+    """Validate tags (a list, or a comma-separated string) against the
+    PROJECT_TAGS.md vocabulary and return the canonical comma-separated
+    tag_set string, in vocabulary order. Rejects unknown tags, and requires
+    exactly one tag from each EXACTLY_ONE_TAG_GROUPS group. An empty list
+    or string is allowed (returns '' = untagged)."""
+
+    vocab = vocab or load_tag_vocabulary()
+
+    if isinstance(tags, str):
+        tags = tags.split(",")
+    tagset = {t.strip() for t in tags if t.strip()}
+    if not tagset:
+        return ""
+
+    unknown = sorted(tagset - set(vocab))
+    assert not unknown, f"Unknown tag(s) {unknown} - see {PROJECT_TAGS_PATH.name}"
+
+    for groupnum, groupname in EXACTLY_ONE_TAG_GROUPS.items():
+        ingroup = sorted(t for t in tagset if vocab[t] == groupnum)
+        assert len(ingroup) == 1, \
+            f"Need exactly one {groupname} tag, got {ingroup or 'none'}"
+
+    return ",".join(t for t in vocab if t in tagset)
+
+
+def update_project(conn, project_id, *, short_desc=None, full_md_text=None, tag_set=None):
+    """Update short_desc, full_md_text and/or tag_set on an existing
+    project row. Only the fields given (not None) are changed. tag_set must
+    already be normalized (see normalize_tag_set)."""
 
     fields, values = [], []
     if short_desc is not None:
@@ -460,8 +522,11 @@ def update_project(conn, project_id, *, short_desc=None, full_md_text=None):
     if full_md_text is not None:
         fields.append("full_md_text = ?")
         values.append(full_md_text)
+    if tag_set is not None:
+        fields.append("tag_set = ?")
+        values.append(tag_set)
 
-    assert fields, "Nothing to update - pass short_desc and/or full_md_text"
+    assert fields, "Nothing to update - pass short_desc, full_md_text and/or tag_set"
 
     values.append(project_id)
     conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id = ?", values)
@@ -524,10 +589,12 @@ def clear_analysis_log(conn, file_path):
 
 def sync_project_from_files(conn, project_id):
     """Apply working/project_edit/<project_id>.md (full_md_text) and
-    working/project_edit/<project_id>.json (every other updatable field -
-    currently just short_desc) to the projects row - see PROJECT_EDIT_DIR
-    above for the naming convention. Either file may be absent, in which
-    case that side is left unchanged; at least one must exist. Once applied,
+    working/project_edit/<project_id>.json (every other updatable field:
+    short_desc, and tag_set as a list of tags that replaces the whole set -
+    see normalize_tag_set) to the projects row - see PROJECT_EDIT_DIR above
+    for the naming convention. Either file may be absent, and a field
+    missing from the .json is left unchanged; at least one file must exist.
+    Everything is validated before anything is written. Once applied,
     both files are deleted (whichever existed) so working/project_edit/
     doesn't accumulate stale edits already committed to the DB."""
 
@@ -544,7 +611,13 @@ def sync_project_from_files(conn, project_id):
         with open(jsonpath, encoding="utf-8") as fh:
             fields = json.load(fh)
 
-    update_project(conn, project_id, short_desc=fields.get("short_desc"), full_md_text=full_md_text)
+    unknown = sorted(set(fields) - {"short_desc", "tag_set"})
+    assert not unknown, f"Unknown field(s) {unknown} in {jsonpath.name} - allowed: short_desc, tag_set"
+
+    tag_set = normalize_tag_set(fields["tag_set"]) if "tag_set" in fields else None
+
+    update_project(conn, project_id, short_desc=fields.get("short_desc"),
+                   full_md_text=full_md_text, tag_set=tag_set)
 
     if mdpath.exists():
         mdpath.unlink()

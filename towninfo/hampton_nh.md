@@ -1,5 +1,7 @@
 # Hampton, NH — Planning Board Web Access
 
+> **Update 2026-09-21:** Agenda Center Minutes `ViewFile` responses have no Content-Disposition, so `FetchUrl dest=` names them after the URL segment (`_MMDDYYYY-NNNN`), the same name the agenda would get. Fetch without `dest=` and rename. (`FetchUrl` now refuses to overwrite.)
+
 Investigated: 2026-09-12
 
 Platform: standard CivicPlus Agenda Center (see PATTERNS.md). No bot

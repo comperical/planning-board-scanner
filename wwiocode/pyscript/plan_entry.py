@@ -337,7 +337,9 @@ class CreateProjectTool:
 class ApplyProjectEditTool:
     """Apply working/project_edit/<project_id>.md (the full_md_text field -
     free-form markdown) and/or working/project_edit/<project_id>.json
-    (every other updatable field - currently just {"short_desc": "..."})
+    (every other updatable field: {"short_desc": "...", "tag_set": [...]} -
+    tag_set replaces the project's whole tag set and is validated against
+    PROJECT_TAGS.md: known tags only, exactly one sector and one stage tag)
     to an existing projects row. Either file may be absent (that side is
     left unchanged); at least one must exist. Once applied, both files are
     deleted - the DB is the source of truth after that point, so
@@ -589,7 +591,8 @@ class DbStatusTool:
             projrows = conn.execute(
                 """
                 SELECT id, short_desc, length(full_md_text),
-                       (SELECT COUNT(*) FROM project_documents WHERE project_id = projects.id)
+                       (SELECT COUNT(*) FROM project_documents WHERE project_id = projects.id),
+                       tag_set
                 FROM projects WHERE town_id = ? ORDER BY id
                 """,
                 (town_id,),
@@ -597,9 +600,9 @@ class DbStatusTool:
 
             if projrows:
                 print(f"  --- {len(projrows)} project(s) ---")
-                for project_id, short_desc, mdlen, doccount in projrows:
+                for project_id, short_desc, mdlen, doccount, tag_set in projrows:
                     print(f"  #{project_id:<4} {short_desc or '(no short_desc)':60}  "
-                          f"md_chars={mdlen or 0}  linked_docs={doccount}")
+                          f"md_chars={mdlen or 0}  linked_docs={doccount}  tags={tag_set or '(untagged)'}")
 
 
 class UpdateDbTool:

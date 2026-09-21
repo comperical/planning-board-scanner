@@ -68,7 +68,12 @@ function getNavSection()
 
 function getDocumentsSection()
 {
-    return composeLinkDiv(["fa-solid fa-file-lines", "documents", "Documents"]);
+    const linkdata = [
+        ["fa-solid fa-file-lines", "documents", "Documents"],
+        ["fa-solid fa-helmet-safety", "projects", "Projects"]
+    ];
+
+    return linkdata.map(composeLinkDiv).join("\n");
 }
 
 // Documents with zero analysis_log rows - same definition NextToAnalyze uses

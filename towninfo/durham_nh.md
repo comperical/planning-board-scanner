@@ -1,5 +1,7 @@
 # Durham, NH — Planning Board Web Access
 
+> **Update 2026-09-21:** Agenda Center `ViewFile` URLs now return a Cloudflare 403 to plain `FetchUrl` (worked on 2026-09-12). Use a native `<a download>` click in the headed `planscan` session + `ClaimDownload` (see PATTERNS.md "Browser-only downloads"). `?packet=true` gives the combined agenda packet.
+
 Investigated: 2026-09-12
 
 Platform: standard CivicPlus Agenda Center (see PATTERNS.md).

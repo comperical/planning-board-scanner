@@ -49,8 +49,8 @@ skim existing projects for that town with
 wwiocode/pyscript/plan_entry.py DbStatus town=<slug>
 ```
 
-(lists every project's `short_desc` under that town). Match by
-address/applicant, not exact wording.
+(lists every project's `short_desc` and current `tags=` under that town).
+Match by address/applicant, not exact wording.
 
 ## 4. Record what you found
 
@@ -67,7 +67,18 @@ prints the new `project_id`. Then write its files (see the
   address, applicant/owner, status, unit/sq-ft counts, anything concrete.
   Use the Write tool.
 - `working/project_edit/<project_id>.json` - `{"short_desc": "one-line
-  summary"}`. Use the Write tool.
+  summary", "tag_set": [...]}`. Use the Write tool.
+
+**Tags are required on every new project.** Pick them from
+`PROJECT_TAGS.md` (repo root) - it defines every tag, which groups apply,
+and has worked examples. In short: exactly one sector tag, exactly one
+stage tag, every work-type tag that applies, housing-type tags if it
+includes housing, and the `large` / `non-construction` flags when they
+apply. `ApplyProjectEdit` validates the list against that file (unknown
+tags, or not exactly one sector/stage, are rejected - nothing is written
+and the edit files are kept, so fix the `.json` and re-run). Never invent a
+tag; if nothing fits, add it to `PROJECT_TAGS.md` first and mention that in
+your summary to the user.
 
 Then apply both:
 
@@ -89,12 +100,35 @@ wwiocode/pyscript/plan_entry.py LinkProject project_id=<project_id> pdf=<path> p
 ```
 
 **Existing project mentioned again** (this document is a later
-minutes/extension/approval for a project already recorded): just link it,
-no new row - same page= convention:
+minutes/extension/approval for a project already recorded): no new row -
+link it, same page= convention:
 
 ```bash
 wwiocode/pyscript/plan_entry.py LinkProject project_id=<id> pdf=<path> page=<page_number>
 ```
+
+Then **bring the project's fields up to date** whenever this document adds
+anything - a status change (continued, approved, extended, construction
+started, surety released, withdrawn), new scope details (unit counts,
+square footage, contractor/engineer names), or corrected facts:
+
+- **Tags** - always re-check the **stage** tag against this document (e.g.
+  `in-review` -> `approved` on an approval, `approved` -> `construction`
+  at a preconstruction meeting, -> `complete` on a surety release), and add
+  any newly revealed work-type/housing/`large` tags. `tag_set` in the
+  `.json` **replaces the whole set**, so start from the current tags shown
+  by `DbStatus` and edit them - don't send only the changed tag. If the
+  project is still untagged (older rows), tag it fully now.
+- **short_desc** - update it if it states a status or scope that is now
+  out of date.
+- **Write-up** - rewrite `working/project_edit/<id>.md` in full with the
+  new information folded in (the `.md` replaces `full_md_text` entirely -
+  read the current text first, e.g. in the Projects page or DB, so nothing
+  is lost), typically adding a dated line to its Status section.
+
+Write only the files for what changed (a `.json` with just `tag_set` is
+fine), then run `ApplyProjectEdit project_id=<id>`. If the document merely
+mentions the project with nothing new, linking alone is enough.
 
 A document can yield zero, one, or several projects - create/link one at a
 time for each. Every project a document yields - new or existing - must

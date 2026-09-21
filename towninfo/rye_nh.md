@@ -1,5 +1,7 @@
 # Rye, NH — Planning Board Web Access
 
+> **Update 2026-09-21:** Agenda Center `ViewFile` URLs now return a Cloudflare 403 to plain `FetchUrl`. Use a native `<a download>` click in the headed `planscan` session + `ClaimDownload` (see PATTERNS.md "Browser-only downloads"). Scanned minutes OCR with merged words - keyword hit counts understate them.
+
 Investigated: 2026-09-12
 
 Platform: standard CivicPlus Agenda Center (see PATTERNS.md). No bot
