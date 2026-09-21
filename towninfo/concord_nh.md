@@ -36,20 +36,14 @@ PATTERNS.md). No Cloudflare/bot-challenge on either system.
   this project's text-only PDF tools. **Getting individual attachment
   PDFs is an open problem.**
 
-## ⚠️ Access gotcha: `View.ashx` needs a same-origin browser fetch
+## Access note: `View.ashx` works with plain `FetchUrl` (resolved 2026-09-21)
 
-- Plain `requests` gets **`410 Gone`** on every `View.ashx?...` URL —
-  reproducible, not transient. The browser's successful request carries a
-  `Referer`; this looks like a deliberate anti-hotlinking check (see
-  PATTERNS.md). Playwright's own download flow doesn't cleanly capture
-  the bytes either — Chrome's native PDF viewer can intercept the
-  navigation and return wrapper HTML instead of the PDF; check for `%PDF`
-  magic bytes before trusting a saved response.
-- **Working pattern**: `playwright-cli eval` in-page `fetch()`,
-  base64-encode, decode to a file with a small Python script (see
-  PATTERNS.md hotlink-gotcha for the exact snippet). Confirmed working
-  this session; the decode-to-disk step itself is the standing `TODO.txt`
-  gap.
+- The earlier "`410 Gone` on every `View.ashx` URL" was **not** hotlink
+  protection: `plan_entry.py`'s argument parsing split on every `=`, so
+  `target=...View.ashx?M=A&ID=...&GUID=...` was sent as `...View.ashx?M`.
+  Fixed; `FetchUrl` now downloads these PDFs directly (confirmed on
+  `View.ashx?M=A&ID=1355361&GUID=DEBF7084-...`, 190KB `application/pdf`).
+- When copying a link from page HTML, decode `&amp;` to `&` first.
 
 ## Archive Center (minutes, and pre-2017 agendas) — the easy path
 

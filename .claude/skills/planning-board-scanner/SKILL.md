@@ -109,6 +109,12 @@ same principle as always calling `LogAnalysis` in the analyze-planning-file
 skill: a scan pass with no `scan_log` row is invisible to anything that
 later wants to know when a town was last checked.
 
+To pick which town to re-scan next, run
+`wwiocode/pyscript/plan_entry.py NextToScan` (`limit=0` for all towns) -
+never-scanned towns first, then oldest last scan pass. It's the scan-side
+counterpart of `NextToAnalyze`; `towns.wisp` shows the same thing as its
+"Last Scanned" column / "Next To Scan" sort.
+
 ## Phase 1: researching a town's site
 
 Use the `playwright-cli` skill, always with the `planscan` session name
@@ -180,6 +186,7 @@ Tools:
 | Tool | What it does |
 |---|---|
 | `FetchUrl` | Downloads `target=<url>` via Python `requests` with a normal desktop User-Agent - a `curl` replacement that needs no permission prompt. With no `dest=`, writes straight to `working/TARGET.pdf` (overwriting it) - pass `pdf=working/TARGET.pdf` to the tools below. With `dest=working/<dir>` (must already exist, under `working/`), saves there instead under the file's original name (from the response's `Content-Disposition` header, falling back to the URL's last path segment) - handy for building up a `working/<town>/` archive directly. |
+| `ClaimDownload` | For sites that block `FetchUrl` (Cloudflare "Just a moment..." 403 on every non-browser request - kingston, madbury, brentwood): trigger a native download in the headed `planscan` session (`eval` a click on an `<a download>` for the file's href - see towninfo/PATTERNS.md), then `file=working/playwright_output/<f> dest=working/<town> [name=<new name>]` checks it's a real PDF/.docx and moves it into place for `IngestPdfTool`. |
 | `PdfExtractText` | Full text extraction (OCR fallback per scanned page). `pdf=working/<path>.pdf` |
 | `PdfInfo` | JSON: metadata, page count, file size, per-page text-length/scanned flag. `pdf=working/<path>.pdf` |
 | `PdfKeywordScan` | JSON: page/snippet hits for development-project terms (site plan, subdivision, residential, commercial, variance, ...). `pdf=working/<path>.pdf`, override keywords with `keywords=a,b,c` |

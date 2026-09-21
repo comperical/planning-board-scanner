@@ -1,5 +1,7 @@
 # Kingston, NH — Planning Board Web Access
 
+> **Update 2026-09-21: download blocker resolved.** The site serves a Cloudflare challenge to every non-browser request (not a hotlink/Referer check). Download via a native `<a download>` click in the headed `planscan` session, then `plan_entry.py ClaimDownload` - see PATTERNS.md "Browser-only downloads". Base64 references below are historical. Confirmed: `/media/21201` = 2026-09-15 PB agenda (714,874 bytes), now at `working/kingston_nh/2026.09.15_PB_Agenda.pdf` (not yet ingested).
+
 Investigated: 2026-09-14
 
 Kingston runs a **newer CivicPlus theme** with per-meeting detail pages

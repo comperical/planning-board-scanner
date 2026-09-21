@@ -249,6 +249,12 @@ def _filename_from_response(target, resp):
     return filename
 
 
+# Leading bytes of the document formats the analysis tools understand: PDF,
+# and .docx (a zip container). Anything else - most often an HTML error or
+# viewer-wrapper page served with a 200 - is refused rather than saved.
+DOC_MAGIC_PREFIXES = (b"%PDF", b"PK\x03\x04")
+
+
 def fetch_url(target, dest_arg=""):
     """Download `target` (a URL) via requests, using a normal desktop-browser
     User-Agent - a curl replacement that doesn't need a permission prompt.
@@ -258,7 +264,11 @@ def fetch_url(target, dest_arg=""):
     resolve_dest_dir) to an existing directory under working/, and the file
     is written there under its original filename - taken from the response's
     Content-Disposition header if the server sends one (as CivicPlus's
-    Agenda Center does), otherwise from the last segment of the URL path."""
+    Agenda Center does), otherwise from the last segment of the URL path.
+
+    The response body must start with a PDF or .docx signature (see
+    DOC_MAGIC_PREFIXES); otherwise nothing is written and it fails, showing
+    the start of what the server sent instead."""
 
     assert target, "target=<url> is required"
 
@@ -266,8 +276,13 @@ def fetch_url(target, dest_arg=""):
     # fails fast instead of after burning a download.
     destdir = resolve_dest_dir(dest_arg) if dest_arg else None
 
-    resp = requests.get(target, headers={"User-Agent": FETCH_USER_AGENT}, timeout=30)
-    resp.raise_for_status()
+    resp = requests.get(target, headers={"User-Agent": FETCH_USER_AGENT}, timeout=60)
+    if not resp.ok:
+        raise RuntimeError(f"{resp.status_code} {resp.reason} fetching {target}")
+
+    assert resp.content.startswith(DOC_MAGIC_PREFIXES), (
+        f"Response from {target} is not a PDF/.docx "
+        f"(content-type: {resp.headers.get('content-type', '?')}); starts with: {resp.content[:120]!r}")
 
     if destdir is not None:
         outpath = destdir / _filename_from_response(target, resp)
@@ -280,6 +295,33 @@ def fetch_url(target, dest_arg=""):
 
     print(f"Fetched {target} -> {outpath} ({len(resp.content)} bytes, "
           f"content-type: {resp.headers.get('content-type', '?')})")
+
+
+def claim_download(file_arg, dest_arg, name=""):
+    """Move a browser download (normally working/playwright_output/<file>,
+    where playwright-cli saves downloads) into dest_arg (an existing
+    working/<town> directory), after checking it really is a PDF/.docx (see
+    DOC_MAGIC_PREFIXES) - a blocked request can still "download" an HTML
+    challenge/error page. Renames it to name if given (a bare filename).
+    Refuses to overwrite an existing file. Returns the new path, relative to
+    PROJECT_ROOT, i.e. the pdf= value for IngestPdfTool."""
+
+    srcpath = resolve_input_pdf(file_arg)
+    destdir = resolve_dest_dir(dest_arg)
+
+    with open(srcpath, "rb") as fh:
+        head = fh.read(8)
+    assert head.startswith(DOC_MAGIC_PREFIXES), (
+        f"{srcpath} is not a PDF/.docx (starts with {head!r}) - probably an error or challenge page")
+
+    filename = name or srcpath.name
+    assert Path(filename).name == filename, f"name= must be a bare filename, got {filename}"
+
+    outpath = destdir / filename
+    assert not outpath.exists(), f"{outpath} already exists - pass a different name="
+
+    srcpath.rename(outpath)
+    return outpath.relative_to(PROJECT_ROOT)
 
 
 def extract_pdf_text(pdf_arg):

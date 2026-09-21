@@ -13,28 +13,22 @@ PLANSCAN TODO
   still blocked - see the hotlink item below, that town also needs the
   base64 workaround before its files even reach disk.
 
-- Add a pre-approved way to decode a base64 blob (from a playwright-cli
-  in-page `fetch()`) back into a real file on disk, for towns whose file
-  server hotlink-blocks plain `requests` (403 on FetchUrl) and requires a
-  same-origin browser fetch instead. Confirmed cases so far: Concord
-  (Legistar View.ashx), Kingston NH and Madbury NH (both /media/{id} on
-  the newer CivicPlus per-meeting theme - see towninfo/kingston_nh.md,
-  towninfo/madbury_nh.md), and Brentwood, NH (/docview.aspx endpoint - see
-  towninfo/brentwood_nh.md, which ALSO needs the docx item below - both
-  problems apply to every Brentwood file). Currently this last step needs
-  an ad hoc Python/base64 snippet outside the project's pre-approved
-  command set, so these towns' agenda/minutes files were fetched as base64
-  in-session but never written to disk.
+- [DONE 2026-09-21] "Hotlink-protected" downloads. Two different causes,
+  neither of which was actually hotlink protection:
+  * Concord (Legistar View.ashx): the 410 Gone came from ArgMap splitting
+    on every "=", truncating target=...View.ashx?M=A&ID=... to
+    ...View.ashx?M. plan_entry.py now splits args on the first "=" only;
+    plain FetchUrl works.
+  * Kingston, Madbury, Brentwood: Cloudflare "Just a moment..." challenge
+    on EVERY non-browser request (listing pages too - Referer/headers don't
+    help), and on in-page fetch() too. What works: a native
+    <a download> click in the headed planscan session (browser saves to
+    working/playwright_output/), then the new ClaimDownload tool checks the
+    PDF/.docx signature and moves it into working/<town>/. No base64 step
+    needed. FetchUrl now also refuses to save non-PDF/.docx responses.
+  Upstream: /opt/userdata/crm/src/python/opsutil/ArgMap.py getFromArgv
+  still has the split("=") bug for other callers.
 
-- Add a `scan_log` table (plan_db.py) distinct from `analysis_log`.
-  `analysis_log` records a manual pass over one already-downloaded document
-  looking for projects; there's no equivalent record of when a town's
-  website was last checked/re-scanned for new documents to download in the
-  first place. Right now "least recently scanned" can only be estimated by
-  proxy (working/<town>/ file mtimes, or the towninfo/*.md "Investigated:"
-  date, which is really "last researched for site-access notes", not "last
-  checked for new files"). Want one row per scan pass, keyed by town_id,
-  with a timestamp (and maybe a note/counts of new files found) - lets the
-  towns.wisp page's "Next Up" logic (and any future scan-scheduling) be
-  driven by real data instead of file mtimes.
-
+- [DONE 2026-09-21] scan_log table - exists in plan_db.py with
+  StartScanLog/EndScanLog, documents.first_scan_id, and NextToScan /
+  towns.wisp "Last Scanned" built on it.

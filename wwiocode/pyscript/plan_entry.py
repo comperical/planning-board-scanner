@@ -1,6 +1,7 @@
 #!/opt/rawdata/pyworld/KitchenSink/bin/python3
 
 import os
+import re
 import sys
 
 import plan_db as DB
@@ -102,6 +103,10 @@ class FetchUrlTool:
     exist under working/, and the file is saved there under the same
     filename it has in the URL.
 
+    Fails without writing anything if the response isn't a PDF or .docx.
+    A 403 "Just a moment..." response means the site blocks non-browser
+    requests (Cloudflare) - use a browser download + ClaimDownload instead.
+
     Args: target=<url>  [dest=working/<dir>]
     """
 
@@ -109,6 +114,32 @@ class FetchUrlTool:
         target = argmap.getStr("target", "")
         dest = argmap.getStr("dest", "")
         UTIL.fetch_url(target, dest)
+
+
+class ClaimDownloadTool:
+    """Move a file the playwright-cli browser downloaded (saved under
+    working/playwright_output/) into working/<town>/, after checking it's a
+    real PDF/.docx and not an error/challenge page. The fallback for sites
+    that block FetchUrl outright (Cloudflare "Just a moment..." on every
+    non-browser request - kingston, madbury, brentwood): trigger the
+    download in-page with a native link click, e.g.
+
+        playwright-cli -s=planscan eval "() => { const a = document.createElement('a'); a.href = '/media/21201'; a.download = ''; document.body.appendChild(a); a.click(); }"
+
+    (a script fetch() gets challenged; a download-attribute link click
+    doesn't), then claim the file named in the "Downloaded file ... to"
+    event. Prints the new pdf= path for IngestPdfTool.
+
+    Args: file=working/playwright_output/<file>  dest=working/<town>  [name=<new filename>]
+    """
+
+    def run_op(self, argmap):
+        filearg = argmap.getStr("file", "")
+        dest = argmap.getStr("dest", "")
+        name = argmap.getStr("name", "")
+
+        outpath = UTIL.claim_download(filearg, dest, name)
+        print(f"Moved {filearg} -> pdf={outpath}")
 
 
 class PdfExtractTextTool:
@@ -426,6 +457,51 @@ class NextToAnalyzeTool:
         print(f"town={slug}  date={doc_date or '?'}  keyword_hits={hitcount}")
 
 
+class NextToScanTool:
+    """List towns in the order they should next be re-scanned (checked for
+    new files): towns with no scan_log rows first, then by oldest most
+    recent scan pass (alpha_time_est). The scan-side counterpart of
+    NextToAnalyze. Also lists towninfo/<slug>.md write-ups that have no
+    town row in the DB yet, since those have never been scanned either.
+
+    Args: [limit=<n>]  (default 10; 0 = all towns)
+    """
+
+    def run_op(self, argmap):
+        limit = argmap.getInt("limit", 10)
+
+        conn = DB.get_connection()
+        rows = conn.execute(
+            """
+            SELECT t.slug, MAX(s.alpha_time_est), COUNT(s.id),
+                   CAST(julianday('now') - julianday(MAX(s.alpha_time_est)) AS INTEGER)
+            FROM town t LEFT JOIN scan_log s ON s.town_id = t.id
+            GROUP BY t.id
+            ORDER BY MAX(s.alpha_time_est) IS NOT NULL, MAX(s.alpha_time_est), t.slug
+            """
+        ).fetchall()
+
+        knownset = {slug for slug, _, _, _ in rows}
+        infodir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "towninfo")
+        # Only <town>_<st>.md files - skips non-town notes like PATTERNS.md
+        missing = sorted(fname[:-3] for fname in os.listdir(infodir)
+                         if re.fullmatch(r"[a-z_]+_[a-z]{2}\.md", fname) and fname[:-3] not in knownset)
+
+        if missing:
+            print(f"{len(missing)} towninfo write-up(s) with no town row in the DB (never scanned):")
+            for slug in missing:
+                print(f"  {slug}")
+            print()
+
+        shown = rows if limit == 0 else rows[:limit]
+        print(f"Towns by scan staleness ({len(shown)} of {len(rows)}):")
+        for slug, lastscan, scancount, daysago in shown:
+            if lastscan is None:
+                print(f"  {slug:30}  never scanned")
+            else:
+                print(f"  {slug:30}  last scan {lastscan}  ({daysago}d ago, {scancount} pass(es))")
+
+
 class DocDetailTool:
     """Print everything already known about pdf= - town/date/size/source,
     keyword hits, and the full extracted text (written to
@@ -547,5 +623,15 @@ if __name__ == '__main__':
 
     SETUP.configure(globals())
 
-    mytool, argmap = SETUP.driver_and_argmap()
+    mytool, _ = SETUP.driver_and_argmap()
+
+    # Re-parse args splitting on the first "=" only - ArgMap.getFromArgv
+    # splits on every "=", which truncates URL values with query strings
+    # (target=...View.ashx?M=A&ID=... became target=...View.ashx?M).
+    argmap = ArgMap.ArgMap()
+    for onearg in sys.argv[2:]:
+        if "=" in onearg:
+            key, val = onearg.split("=", 1)
+            argmap.put(key, val)
+
     mytool.run_op(argmap)

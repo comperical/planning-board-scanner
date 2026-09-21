@@ -1,5 +1,7 @@
 # Madbury, NH — Planning Board Web Access
 
+> **Update 2026-09-21: download blocker resolved.** The site serves a Cloudflare challenge to every non-browser request (not a hotlink/Referer check). Download via a native `<a download>` click in the headed `planscan` session, then `plan_entry.py ClaimDownload` - see PATTERNS.md "Browser-only downloads". Base64 references below are historical. Note: `/media/1681` is actually a 2019-11-20 file, not the Sep 16 agenda as recorded below - re-identify current media IDs from the meeting pages.
+
 Investigated: 2026-09-14
 
 Small Strafford County town near Durham. Runs the newer CivicPlus theme

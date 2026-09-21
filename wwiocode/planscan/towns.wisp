@@ -68,8 +68,29 @@ function getNextUpDisplay(townid) {
 	return dated.map(doc => doc.getDocDate()).sort().reverse()[0];
 }
 
+// Most recent scan_log alpha_time_est for this town ("YYYY-MM-DD HH:MM:SS"
+// UTC strings, so they sort lexically), or null if never scanned.
+function getLastScanTime(townid) {
+	const timelist = W.getItemList('scan_log')
+		.filter(scan => scan.getTownId() == townid)
+		.map(scan => scan.getAlphaTimeEst())
+		.filter(t => t != null);
+	if(timelist.length == 0) { return null; }
+	return timelist.sort().reverse()[0];
+}
+
+// Display string for the "Last Scanned" column: date plus days ago.
+function getLastScanDisplay(townid) {
+	const lastscan = getLastScanTime(townid);
+	if(lastscan == null) { return "(never)"; }
+	const ms = Date.parse(lastscan.replace(" ", "T") + "Z");
+	const daysago = Math.floor((Date.now() - ms) / 86400000);
+	return `${lastscan.substring(0, 10)} (${daysago}d)`;
+}
+
 const SORT_OPTION_MAP = new Map([
 	["next_up", "Next Up"],
+	["next_scan", "Next To Scan"],
 	["town_name", "Town Name"],
 	["num_projects", "#Projects"]
 ]);
@@ -78,6 +99,14 @@ function getSortComparator(sortkey) {
 
 	if(sortkey == "town_name") {
 		return U.proxySort(item => [item.getName() || "", item.getState() || ""]);
+	}
+
+	// Mirrors NextToScan: never-scanned towns first, then oldest last scan
+	if(sortkey == "next_scan") {
+		return U.proxySort(item => {
+			const lastscan = getLastScanTime(item.getId());
+			return lastscan == null ? [0, "", item.getName() || ""] : [1, lastscan, item.getName() || ""];
+		});
 	}
 
 	if(sortkey == "num_projects") {
@@ -125,6 +154,7 @@ function getMainPageInfo() {
 		<tr>
 		<th>Town</th>
 		<th>Next Up</th>
+		<th>Last Scanned</th>
 		<th>#Files</th>
 		<th>Total Size</th>
 		<th>Most Recent File</th>
@@ -147,6 +177,7 @@ function getMainPageInfo() {
 			<tr>
 			<td>${item.getName() || "?"}, ${item.getState() || "?"}</td>
 			<td>${getNextUpDisplay(item.getId())}</td>
+			<td>${getLastScanDisplay(item.getId())}</td>
 			<td>${doclist.length}</td>
 			<td>${formatSize(totalsize)}</td>
 			<td>${getMostRecentDocDate(doclist)}</td>

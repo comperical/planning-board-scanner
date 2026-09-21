@@ -95,17 +95,19 @@ Playwright session to enumerate/navigate pages, then hand PDF URLs to plain
 
 ## Access gotchas (cross-town)
 
-- **Hotlink / same-origin protection**: a file-serving endpoint 403s (or
-  Legistar: 410s) on a bare `requests.get()` but works from a browser,
-  because the server checks `Referer`/cookies rather than a bot signature.
-  Confirmed at: concord (Legistar `View.ashx`), kingston & madbury
-  (`/media/{id}`), brentwood (`/docview.aspx`). **Fix**: use
-  `playwright-cli eval` to run an in-page `fetch()` (same-origin, carries
-  the right headers automatically), base64-encode the response body, and
-  decode it to a file with a small Python script. This has been confirmed
-  to fetch bytes successfully at all four towns; **the base64-decode-to-disk
-  step itself is a standing `TODO.txt` item**, not yet scripted/approved as
-  of this session — those four towns' documents are fetched-but-not-landed.
+- **Browser-only downloads (Cloudflare challenge)**: kingston & madbury
+  (`/media/{id}`) and brentwood (`/docview.aspx`) serve a Cloudflare
+  "Just a moment..." 403 to *every* non-browser request - listing pages
+  as well as files - so `FetchUrl` can't be used at all, with or without a
+  Referer. An in-page `fetch()` gets challenged too. **Fix** (confirmed
+  2026-09-21 on all three): in the headed `planscan` session, on any page of
+  the town's site, click a native download link:
+  `playwright-cli -s=planscan eval "() => { const a = document.createElement('a'); a.href = '/media/21201'; a.download = ''; document.body.appendChild(a); a.click(); }"`
+  The browser saves the file (real filename) to `working/playwright_output/`
+  - then `plan_entry.py ClaimDownload file=working/playwright_output/<f> dest=working/<town> [name=...]`
+  checks it's a real PDF/.docx and moves it in, ready for `IngestPdfTool`.
+  (Concord was previously listed here too; its 410s were an argument-
+  parsing bug, now fixed - plain `FetchUrl` works for Legistar `View.ashx`.)
 - **`.docx` instead of PDF**: hampton_falls (all documents), brentwood (all
   documents, in addition to the hotlink issue), gilford (at least some
   documents). Content-Type

@@ -1,5 +1,7 @@
 # Brentwood, NH — Planning Board Web Access
 
+> **Update 2026-09-21: download blocker resolved.** The site serves a Cloudflare challenge to every non-browser request (not a hotlink/Referer check). Download via a native `<a download>` click in the headed `planscan` session, then `plan_entry.py ClaimDownload` - see PATTERNS.md "Browser-only downloads". Base64 references below are historical. Confirmed: `docview.aspx?doctype=agendaDoc&docid=14865` = 2026-09-17 PB agenda (.docx), now at `working/brentwood_nh/2026.09.17_PB_Agenda.docx` (not yet ingested).
+
 Investigated: 2026-09-14
 
 Brentwood is the **only town in this project on the "Municipal One"
