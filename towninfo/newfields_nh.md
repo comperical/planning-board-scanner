@@ -14,8 +14,9 @@ protection.
 - Agenda Center's **Planning Board section loads collapsed**, had to be
   expanded with a click before rows became visible — unlike Hampton
   Falls/Greenland which have a direct per-board URL
-  (`/AgendaCenter/Planning-Board-{n}`); worth trying that shortcut here in
-  a future session, not confirmed.
+  (`/AgendaCenter/Planning-Board-{n}`). **Confirmed 2026-09-22**: the
+  direct URL `/AgendaCenter/Planning-Board-7` works and loads the board's
+  rows already expanded — use it instead of the collapsed town-wide page.
 - Some agenda links append `?html=true` (opens an inline HTML preview
   instead of downloading) — strip if unsure.
 - Meetings monthly, 2nd Thursday, 7pm. Some months add an extra "Work

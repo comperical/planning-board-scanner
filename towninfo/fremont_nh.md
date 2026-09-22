@@ -12,7 +12,14 @@ Small Rockingham County town. Platform: standard CivicPlus Agenda Center
   stale/404. Current Planning Board hub is `/1559/Planning-Board`, found
   via top nav → "Boards & Committees" → `/1497/Boards-Committees`.
 - Agenda Center section loads **collapsed**, needs a click to expand
-  (same as Newfields).
+  (same as Newfields) — or skip that with the direct URL
+  `/AgendaCenter/Planning-Board-3` (confirmed 2026-09-22).
+- ⚠️ **Agendas get replaced in place under the same ViewFile id**: the
+  Sept 16, 2026 agenda (`_09162026-255`) was a 1.8KB PDF stub on 9/14 and
+  a full 44KB **`.docx`** by 9/22. Re-fetch any stub-sized agenda on the
+  next pass; also expect mixed PDF/.docx formats.
+- Also posts "Capital Improvement Program (CIP)" committee agendas in the
+  same section — skip alongside the Community Facilities Subcommittee.
 - Lists **multiple related boards** in one place — a "Community
   Facilities Subcommittee" also posts under a similar naming/date scheme,
   so don't assume every row under "Planning Board" is the main board's

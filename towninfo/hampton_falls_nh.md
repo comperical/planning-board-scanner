@@ -19,8 +19,11 @@ this project where that's the case. No bot protection.
 
 ## Document content
 
-- Not yet analyzed (docx, not text-extractable with current tools).
-  Sample files pulled for a future docx-handling pass:
+- `IngestPdfTool` now accepts `.docx` directly (the PDF-only tools like
+  `PdfKeywordScan` still don't). Agendas are short, 1 page, and often 0
+  keyword hits. The same Agenda Center section also carries "Ords & Regs"
+  committee agendas (regulation drafting, no cases) — skip those.
+  Original sample files:
   - `working/hampton_falls_nh/2026-08-25 PB Agenda.docx` (kept its real
     filename via Content-Disposition)
   - `working/hampton_falls_nh/_06232026-147` (Jun 23, 2026 minutes, no

@@ -67,6 +67,7 @@ teardown-and-rebuild is `demolition,new-construction`.
 | `new-construction` | New building(s) or home(s) | #36 270 Loudon Rd; #86 public works facility; #101 0 Elm St new home |
 | `addition` | Enlarging an existing building | #15 16 Whitaker Way; #79 444 Route 125 6,000 SF addition; #5 313 Loudon Rd |
 | `conversion` | Change of use or reconfiguring an existing building (office-to-residential, co-living, recreation use) | #6 103 North State St office to 21 units; #61 38 Milton Rd batting cages; #103 1-15 Congress St co-living |
+| `renovation` | Renovating an existing building without enlarging it or changing its use - facade/storefront replacement, exterior lighting, interior fit-out, roof/HVAC upgrades | #143 38 South Main St storefront; #161 80 Storrs St facade lighting |
 | `demolition` | Tearing down an existing structure | #58 dry cleaner; #95 238 Austin St; #113 old water tank |
 | `subdivision` | Dividing land into new lots (usually precedes home building) | #53 73 Piscataqua Rd; #57 701 South Rd; #109 121 High St |
 | `lot-line-adjustment` | Moving a boundary between existing lots, or merging lots; little construction by itself | #42 109 Hoit Rd; #80 95/97 Prescott Rd; #117 Ocean Blvd |
