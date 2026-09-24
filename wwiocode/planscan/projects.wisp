@@ -175,18 +175,45 @@ function getDocLinksForProject(projectid) {
 		.reverse();
 }
 
+// project id -> number of linked contacts, built once per redisplay
+function getProjectContactCountMap() {
+	const countmap = new Map();
+	W.getItemList('contact_project').forEach(function(link) {
+		countmap.set(link.getProjectId(), (countmap.get(link.getProjectId()) || 0) + 1);
+	});
+	return countmap;
+}
+
+// Contacts linked to this project via contact_project, sorted by company then name
+function getContactsForProject(projectid) {
+	return W.getItemList('contact_project')
+		.filter(link => link.getProjectId() == projectid)
+		.map(link => W.lookupItem('contact_info', link.getContactId()))
+		.filter(contact => contact != null)
+		.sort(U.proxySort(contact => [contact.getCompany() || contact.getName() || "", contact.getName() || ""]));
+}
+
 function shorten4Display(ob) {
 	const s = '' + ob;
 	if(s.length < 60) { return s; }
 	return s.substring(0, 57) + '...';
 }
 
+// The document's source URL, or "" if it has none. A missing value can
+// come back from the getter as the string "null", so only real http(s)
+// URLs count - anything else would become a broken relative link.
+function getRealSourceUrl(docitem) {
+	const url = (docitem.getSourceUrl() || "") + "";
+	return /^https?:\/\//i.test(url.trim()) ? url.trim() : "";
+}
+
 // Most PDF viewers honor a #page=N fragment to jump straight to that page
 function getPageLinkHtml(docitem, pagenumber) {
 	if(pagenumber == null) { return "?"; }
-	if(!docitem.getSourceUrl()) { return pagenumber; }
+	const url = getRealSourceUrl(docitem);
+	if(!url) { return pagenumber; }
 
-	return `<a href="${docitem.getSourceUrl()}#page=${pagenumber}" target="_blank">${pagenumber}</a>`;
+	return `<a href="${url}#page=${pagenumber}" target="_blank">${pagenumber}</a>`;
 }
 
 function escapeHtml(rawtext) {
@@ -207,23 +234,98 @@ function renderMarkdown(mdtext) {
 // formatted into email/docs), with the HTML source as the plain-text
 // flavor (pastes as markup into plain-text editors)
 async function copyDescription() {
-
 	const html = renderMarkdown(getStudyItem().getFullMdText() || "");
+	await copyToClipboard(html, html, "Description copied to clipboard");
+}
 
+// Writes rich HTML plus a plain-text flavor to the clipboard; the paste
+// target picks whichever it understands
+async function copyToClipboard(html, plaintext, donemsg) {
 	try {
 		if(typeof ClipboardItem !== "undefined") {
 			await navigator.clipboard.write([new ClipboardItem({
 				"text/html" : new Blob([html], {type : "text/html"}),
-				"text/plain" : new Blob([html], {type : "text/plain"})
+				"text/plain" : new Blob([plaintext], {type : "text/plain"})
 			})]);
 		} else {
-			await navigator.clipboard.writeText(html);
+			await navigator.clipboard.writeText(plaintext);
 		}
-		alert("Description copied to clipboard");
+		alert(donemsg);
 	}
 	catch(err) {
 		alert("Could not copy to clipboard: " + (err.message || err));
 	}
+}
+
+// One contact as a single line: "Company - Name | phone | email | web"
+function getContactLine(contact) {
+	const who = [contact.getCompany(), contact.getName()].filter(x => x).join(" - ") || "(no name)";
+	return [who, contact.getPhone(), contact.getEmail(), contact.getWebSite()].filter(x => x).join(" | ");
+}
+
+// Linked documents that have a source URL (the only ones worth linking),
+// as {label, url} with a #page=N jump when the mention's page is known
+function getSourceDocLinks(projectid) {
+	return getDocLinksForProject(projectid)
+		.filter(entry => getRealSourceUrl(entry.doc))
+		.map(entry => ({
+			label : `${entry.doc.getDocDate() || "?"} - ${entry.doc.getFilePath().split("/").pop()}`,
+			url : getRealSourceUrl(entry.doc) + (entry.link.getPageNumber() != null ? `#page=${entry.link.getPageNumber()}` : "")
+		}));
+}
+
+// The write-up's own headings are demoted so they sit under the per-project
+// heading instead of competing with it
+function getProjectCopyHtml(item) {
+
+	const mdhtml = renderMarkdown(item.getFullMdText() || "")
+		.replace(/<(\/?)h[1-3]>/g, "<$1h4>");
+	const contacts = getContactsForProject(item.getId());
+	const doclinks = getSourceDocLinks(item.getId());
+
+	return `
+		<h3>${escapeHtml(getTownName(item.getTownId()))}: ${escapeHtml(item.getShortDesc() || "(no short_desc)")}</h3>
+		${mdhtml}
+		${contacts.length == 0 ? "" : `
+		<p><b>Contacts</b></p>
+		<ul>${contacts.map(c => `<li>${escapeHtml(getContactLine(c))}</li>`).join("")}</ul>`}
+		${doclinks.length == 0 ? "" : `
+		<p><b>Source documents</b></p>
+		<ul>${doclinks.map(d => `<li><a href="${escapeHtml(d.url)}">${escapeHtml(d.label)}</a></li>`).join("")}</ul>`}
+	`;
+}
+
+function getProjectCopyText(item) {
+
+	const contacts = getContactsForProject(item.getId());
+	const doclinks = getSourceDocLinks(item.getId());
+
+	const lines = [
+		`${getTownName(item.getTownId())}: ${item.getShortDesc() || "(no short_desc)"}`,
+		"",
+		(item.getFullMdText() || "").trim()
+	];
+	if(contacts.length > 0) {
+		lines.push("", "Contacts:", ...contacts.map(c => "  - " + getContactLine(c)));
+	}
+	if(doclinks.length > 0) {
+		lines.push("", "Source documents:", ...doclinks.map(d => `  - ${d.label}: ${d.url}`));
+	}
+	return lines.join("\n");
+}
+
+// Copies every project in the current (filtered, sorted) main listing
+async function copySelection() {
+
+	const itemlist = getSelectedProjects();
+	if(itemlist.length == 0) {
+		alert("No projects in the current selection");
+		return;
+	}
+
+	const html = itemlist.map(getProjectCopyHtml).join("<hr/>");
+	const plaintext = itemlist.map(getProjectCopyText).join("\n\n" + "-".repeat(60) + "\n\n");
+	await copyToClipboard(html, plaintext, `Copied ${itemlist.length} project(s) to clipboard`);
 }
 
 // Detail view: project fields, rendered write-up, and linked documents
@@ -232,6 +334,7 @@ function getEditPageInfo() {
 	const item = getStudyItem();
 	const doclinklist = getDocLinksForProject(item.getId());
 	const latest = getLatestDocDate(doclinklist.map(entry => entry.doc));
+	const contactlist = getContactsForProject(item.getId());
 
 	var pageinfo = `
 	<h4>Project Detail</h4>
@@ -262,6 +365,30 @@ function getEditPageInfo() {
 	</th></tr>
 	<tr><td class="left-align project-md">${renderMarkdown(item.getFullMdText() || "")}</td></tr>
 	</table>
+
+	<br/>
+
+	<h4>Contacts (${contactlist.length})</h4>
+	${contactlist.length == 0 ? `<div>No contacts linked yet</div>` : `
+	<table class="basic-table" width="70%">
+	<tr>
+	<th width="22%">Company</th>
+	<th>Name</th>
+	<th width="16%">Phone</th>
+	<th width="24%">Email</th>
+	<th width="24%">Web Site</th>
+	</tr>
+	${contactlist.map(contact => `
+	<tr>
+	<td class="left-align">${escapeHtml(contact.getCompany() || "")}</td>
+	<td class="left-align">${escapeHtml(contact.getName() || "")}</td>
+	<td>${PSUTIL.getPhoneHtml(contact.getPhone())}</td>
+	<td class="left-align">${PSUTIL.getEmailHtml(contact.getEmail())}</td>
+	<td class="left-align">${PSUTIL.getWebSiteHtml(contact.getWebSite())}</td>
+	</tr>
+	`).join("")}
+	</table>
+	`}
 
 	<br/>
 
@@ -334,18 +461,27 @@ function getUiControlTable() {
 	`;
 }
 
-// Main listing: one row per project
-function getMainPageInfo() {
+// Projects matching the current town/tag filters, in the current sort
+// order - what the main listing shows, and what copySelection copies
+function getSelectedProjects(docmap) {
 
-	const docmap = getProjectDocMap();
+	docmap = docmap || getProjectDocMap();
 	const towntrg = getSelectedTownId();
 	const tagtrg = GENERIC_OPT_SELECT_MAP.get(TAG_SEL_KEY);
 	const sortkey = GENERIC_OPT_SELECT_MAP.get(SORT_SEL_KEY);
 
-	const itemlist = W.getItemList(MAIN_TABLE)
+	return W.getItemList(MAIN_TABLE)
 		.filter(item => towntrg == -1 || item.getTownId() == towntrg)
 		.filter(item => matchesTagFilter(item, tagtrg))
 		.sort(getSortComparator(sortkey, docmap));
+}
+
+// Main listing: one row per project
+function getMainPageInfo() {
+
+	const docmap = getProjectDocMap();
+	const contactcountmap = getProjectContactCountMap();
+	const itemlist = getSelectedProjects(docmap);
 
 	var pageinfo = `<h3>PlanScan Projects</h3>
 
@@ -353,7 +489,11 @@ function getMainPageInfo() {
 
 		<br/>
 
-		<div>Showing ${itemlist.length} project(s)</div>
+		<div>Showing ${itemlist.length} project(s)
+		&nbsp;&nbsp;
+		<button onclick="javascript:copySelection()" title="Copy these projects (town, descriptions, contacts, source links) with light formatting">
+		<i class="fa-regular fa-copy"></i> Copy selection</button>
+		</div>
 
 		<br/>
 
@@ -364,6 +504,7 @@ function getMainPageInfo() {
 		<th>Short Description</th>
 		<th width="18%">Tags</th>
 		<th width="6%">#Docs</th>
+		<th width="8%">#Contacts</th>
 		<th width="10%">Latest Doc</th>
 		</tr>
 	`;
@@ -379,6 +520,7 @@ function getMainPageInfo() {
 			<td class="left-align">${item.getShortDesc() || "(no short_desc)"}</td>
 			<td class="left-align">${getTagList(item).join(", ")}</td>
 			<td>${doclist.length}</td>
+			<td>${contactcountmap.get(item.getId()) || ""}</td>
 			<td>${getLatestDocDate(doclist) || "?"}</td>
 			</tr>
 		`;

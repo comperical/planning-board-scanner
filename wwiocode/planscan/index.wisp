@@ -70,7 +70,8 @@ function getDocumentsSection()
 {
     const linkdata = [
         ["fa-solid fa-file-lines", "documents", "Documents"],
-        ["fa-solid fa-helmet-safety", "projects", "Projects"]
+        ["fa-solid fa-helmet-safety", "projects", "Projects"],
+        ["fa-solid fa-address-book", "contacts", "Contacts"]
     ];
 
     return linkdata.map(composeLinkDiv).join("\n");
@@ -88,6 +89,7 @@ function getDashBoardTable()
     const towncount = W.getItemList('town').length;
     const doccount = W.getItemList('documents').length;
     const projectcount = W.getItemList('projects').length;
+    const contactcount = W.getItemList('contact_info').length;
     const backlogcount = getBacklogCount();
 
     return `
@@ -109,6 +111,11 @@ function getDashBoardTable()
         <tr>
         <td>Projects</td>
         <td>${projectcount}</td>
+        </tr>
+
+        <tr>
+        <td>Contacts</td>
+        <td>${contactcount}</td>
         </tr>
 
         <tr>

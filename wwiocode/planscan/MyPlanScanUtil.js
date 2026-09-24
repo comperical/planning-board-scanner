@@ -75,6 +75,34 @@ PSUTIL = {
         redisplay();
     },
 
+    escapeHtml : function(rawtext)
+    {
+        const div = document.createElement("div");
+        div.textContent = rawtext;
+        return div.innerHTML;
+    },
+
+    // Contact fields as links (tel:/mailto:/web), or "" when blank
+    getPhoneHtml : function(phone)
+    {
+        if(!phone) { return ""; }
+        return `<a href="tel:${phone.replace(/[^0-9+]/g, "")}">${PSUTIL.escapeHtml(phone)}</a>`;
+    },
+
+    getEmailHtml : function(email)
+    {
+        if(!email) { return ""; }
+        return `<a href="mailto:${PSUTIL.escapeHtml(email)}">${PSUTIL.escapeHtml(email)}</a>`;
+    },
+
+    getWebSiteHtml : function(website)
+    {
+        if(!website) { return ""; }
+        let display = website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+        if(display.length >= 40) { display = display.substring(0, 37) + "..."; }
+        return `<a href="${PSUTIL.escapeHtml(website)}" target="_blank">${PSUTIL.escapeHtml(display)}</a>`;
+    },
+
     buildGenericMap : function(items, keyfunc, valfunc)
     {
         const mymap = new Map();

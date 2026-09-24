@@ -49,6 +49,10 @@ DB_UPDATE_PATH = WORK_DIR / "DB_UPDATE.json"
 # run against a read-only connection.
 QUERY_PATH = WORK_DIR / "QUERY.sql"
 
+# Hardcoded input for the Upsert tool (plan_entry.py) - one JSON object whose
+# keys are exactly the target table's column names. See upsert_row().
+UPSERT_PATH = WORK_DIR / "UPSERT.json"
+
 # Naming convention for editing a project by hand (see the ApplyProjectEdit
 # tool in plan_entry.py / sync_project_from_files() below): to update
 # project <id>, write working/project_edit/<id>.md (the full_md_text field
@@ -172,7 +176,8 @@ CREATE TABLE IF NOT EXISTS analysis_log (
 -- engineer, attorney, etc). Curated by hand, like projects.
 CREATE TABLE IF NOT EXISTS contact_info (
     id                  INTEGER PRIMARY KEY,
-    name                TEXT,              -- e.g. "Jane Smith" or "Acme Engineering LLC"
+    name                TEXT,              -- person, e.g. "Jane Smith, PE"; blank if only the org is known
+    company             TEXT,              -- e.g. "Acme Engineering, LLC"; blank for an individual
     phone               TEXT,
     email               TEXT,
     web_site            TEXT
@@ -233,6 +238,10 @@ def _run_migrations(conn):
     cols = {row[1] for row in conn.execute("PRAGMA table_info(projects)")}
     if "tag_set" not in cols:
         conn.execute("ALTER TABLE projects ADD COLUMN tag_set TEXT DEFAULT ''")
+
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(contact_info)")}
+    if "company" not in cols:
+        conn.execute("ALTER TABLE contact_info ADD COLUMN company TEXT")
 
     # Index creation deferred here (rather than in SCHEMA) since the column
     # above may not exist yet on an older database at the point SCHEMA runs.
@@ -577,13 +586,13 @@ def link_project_document(conn, project_id, document_id, page_number=None):
     conn.commit()
 
 
-def create_contact(conn, name="", phone="", email="", web_site=""):
+def create_contact(conn, name="", phone="", email="", web_site="", company=""):
     """Create a new contact_info row and return its id. Like create_project,
     there's no upsert-by-key - each call makes a new row."""
 
     cur = conn.execute(
-        "INSERT INTO contact_info (name, phone, email, web_site) VALUES (?, ?, ?, ?)",
-        (name, phone, email, web_site),
+        "INSERT INTO contact_info (name, company, phone, email, web_site) VALUES (?, ?, ?, ?, ?)",
+        (name, company, phone, email, web_site),
     )
     conn.commit()
     return cur.lastrowid
@@ -672,6 +681,43 @@ def sync_project_from_files(conn, project_id):
         jsonpath.unlink()
 
     return project_id
+
+
+def upsert_row(conn, table, record):
+    """Create or update one row of table from record, a dict whose keys
+    must all be actual column names of that table. If record has "id", that
+    existing row is updated (only the given columns change; the id must
+    already exist). Otherwise a new row is created with id = MAX(id) + 1
+    (increment allocation). Returns (row_id, created)."""
+
+    assert re.fullmatch(r"[a-z_]+", table or ""), f"Bad table name {table!r}"
+    columns = [row[1] for row in conn.execute(f"PRAGMA table_info({table})")]
+    assert columns, f"No table named {table}"
+    assert isinstance(record, dict) and record, "Upsert record must be a non-empty JSON object"
+
+    unknown = sorted(set(record) - set(columns))
+    assert not unknown, f"Unknown column(s) for {table}: {unknown} - columns are {columns}"
+
+    fields = {k: v for k, v in record.items() if k != "id"}
+
+    if record.get("id") is not None:
+        row_id = int(record["id"])
+        assert conn.execute(f"SELECT 1 FROM {table} WHERE id = ?", (row_id,)).fetchone(), \
+            f"No {table} row with id {row_id} - omit id to create a new row"
+        assert fields, "Nothing to update - record has only an id"
+        setclause = ", ".join(f"{k} = ?" for k in fields)
+        conn.execute(f"UPDATE {table} SET {setclause} WHERE id = ?", [*fields.values(), row_id])
+        conn.commit()
+        return row_id, False
+
+    row_id = conn.execute(f"SELECT IFNULL(MAX(id), 0) + 1 FROM {table}").fetchone()[0]
+    fields = {"id": row_id, **fields}
+    conn.execute(
+        f"INSERT INTO {table} ({', '.join(fields)}) VALUES ({', '.join('?' for _ in fields)})",
+        list(fields.values()),
+    )
+    conn.commit()
+    return row_id, True
 
 
 def run_query(path=QUERY_PATH, db_path=DB_PATH):

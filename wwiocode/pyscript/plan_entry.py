@@ -387,23 +387,27 @@ class LinkProjectTool:
 class CreateContactTool:
     """Create a new row in the contact_info table (a person or organization
     involved in projects - applicant, owner, engineer, etc) and print its
-    id. All fields are optional; link it to projects with LinkContact.
+    id. name= is the person and company= their firm - for an organization
+    with no known person, fill in company= and leave name= blank. All
+    fields are optional; link it to projects with LinkContact.
 
-    Args: [name=...]  [phone=...]  [email=...]  [web_site=...]
+    Args: [name=...]  [company=...]  [phone=...]  [email=...]  [web_site=...]
     """
 
     def run_op(self, argmap):
         name = argmap.getStr("name", "")
+        company = argmap.getStr("company", "")
         phone = argmap.getStr("phone", "")
         email = argmap.getStr("email", "")
         web_site = argmap.getStr("web_site", "")
 
-        assert name or phone or email or web_site, \
-            "Pass at least one of name=, phone=, email=, web_site="
+        assert name or company or phone or email or web_site, \
+            "Pass at least one of name=, company=, phone=, email=, web_site="
 
         conn = DB.get_connection()
-        contact_id = DB.create_contact(conn, name, phone, email, web_site)
-        print(f"Created contact {contact_id} ({name or '(no name)'}). Link it with "
+        contact_id = DB.create_contact(conn, name, phone, email, web_site, company=company)
+        label = " - ".join(x for x in (name, company) if x) or "(no name)"
+        print(f"Created contact {contact_id} ({label}). Link it with "
               f"LinkContact project_id=<id> contact_ids={contact_id}")
 
 
@@ -461,21 +465,22 @@ class ShowContactForTownTool:
 
         rows = conn.execute(
             """
-            SELECT c.id, c.name, c.phone, c.email, c.web_site,
+            SELECT c.id, c.name, c.company, c.phone, c.email, c.web_site,
                    GROUP_CONCAT(p.id, ',')
             FROM contact_info c
             JOIN contact_project cp ON cp.contact_id = c.id
             JOIN projects p ON p.id = cp.project_id
             WHERE p.town_id = ?
             GROUP BY c.id
-            ORDER BY c.name, c.id
+            ORDER BY c.company, c.name, c.id
             """,
             (town_id,),
         ).fetchall()
 
         print(f"{len(rows)} contact(s) for town {town_id} ({slug}):")
-        for contact_id, name, phone, email, web_site, projids in rows:
-            print(f"  #{contact_id:<4} {name or '(no name)'}")
+        for contact_id, name, company, phone, email, web_site, projids in rows:
+            label = " - ".join(x for x in (name, company) if x) or "(no name)"
+            print(f"  #{contact_id:<4} {label}")
             print(f"        phone={phone or '-'}  email={email or '-'}  web_site={web_site or '-'}  projects={projids}")
 
 
@@ -698,6 +703,34 @@ class DbStatusTool:
                 for project_id, short_desc, mdlen, doccount, tag_set in projrows:
                     print(f"  #{project_id:<4} {short_desc or '(no short_desc)':60}  "
                           f"md_chars={mdlen or 0}  linked_docs={doccount}  tags={tag_set or '(untagged)'}")
+
+
+class UpsertTool:
+    """Create or update one row of table= from the hardcoded JSON file
+    working/UPSERT.json - a single object whose keys are exactly that
+    table's column names, e.g. for table=contact_info:
+
+        {"name": "Jane Smith, PE", "company": "Acme Engineering, LLC", "phone": "(603) 555-1234"}
+
+    With an "id" key, that existing row is updated (only the columns given
+    change). Without one, a new row is created with id = MAX(id) + 1, and
+    the new id is printed. Unknown column names are rejected.
+
+    Args: table=<table name>
+    """
+
+    def run_op(self, argmap):
+        table = argmap.getStr("table", "")
+        assert table, "table=<table name> is required"
+
+        record = DB.load_json_output(DB.UPSERT_PATH)
+        conn = DB.get_connection()
+        row_id, created = DB.upsert_row(conn, table, record)
+
+        if created:
+            print(f"Created {table} row with id {row_id}")
+        else:
+            print(f"Updated {table} row {row_id}: {', '.join(k for k in record if k != 'id')}")
 
 
 class RunQueryTool:
