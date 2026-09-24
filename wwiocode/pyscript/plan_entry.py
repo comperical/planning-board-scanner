@@ -384,6 +384,101 @@ class LinkProjectTool:
         print(f"Linked project {project_id} <-> document {document_id} ({pdf}){pagesuffix}")
 
 
+class CreateContactTool:
+    """Create a new row in the contact_info table (a person or organization
+    involved in projects - applicant, owner, engineer, etc) and print its
+    id. All fields are optional; link it to projects with LinkContact.
+
+    Args: [name=...]  [phone=...]  [email=...]  [web_site=...]
+    """
+
+    def run_op(self, argmap):
+        name = argmap.getStr("name", "")
+        phone = argmap.getStr("phone", "")
+        email = argmap.getStr("email", "")
+        web_site = argmap.getStr("web_site", "")
+
+        assert name or phone or email or web_site, \
+            "Pass at least one of name=, phone=, email=, web_site="
+
+        conn = DB.get_connection()
+        contact_id = DB.create_contact(conn, name, phone, email, web_site)
+        print(f"Created contact {contact_id} ({name or '(no name)'}). Link it with "
+              f"LinkContact project_id=<id> contact_ids={contact_id}")
+
+
+class LinkContactTool:
+    """Link one project to one or more contacts (contact_project table).
+    Every id is checked to exist before anything is written, so a bad id
+    links nothing. Safe to re-run - existing links are left as they are.
+
+    Args: project_id=<id>  contact_ids=<id>[,<id>,...]
+    """
+
+    def run_op(self, argmap):
+        project_id = argmap.getInt("project_id", -1)
+        idstr = argmap.getStr("contact_ids", "")
+
+        assert project_id != -1, "project_id=<id> is required"
+        contact_ids = [int(s.strip()) for s in idstr.split(",") if s.strip()]
+        assert contact_ids, "contact_ids=<id>[,<id>,...] is required"
+
+        conn = DB.get_connection()
+        assert conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone(), \
+            f"No project with id {project_id}"
+        missing = [cid for cid in contact_ids
+                   if not conn.execute("SELECT 1 FROM contact_info WHERE id = ?", (cid,)).fetchone()]
+        assert not missing, f"No contact(s) with id {missing}"
+
+        for contact_id in contact_ids:
+            DB.link_contact_project(conn, contact_id, project_id)
+        print(f"Linked project {project_id} <-> contact(s) {contact_ids}")
+
+
+class ShowContactForTownTool:
+    """List every contact linked (via contact_project) to at least one
+    project in town_id=, with the ids of those projects - so an existing
+    contact can be reused with LinkContact instead of creating a duplicate.
+    Contacts not yet linked to any project don't appear. Identify the town
+    by town= (slug) or town_id= - exactly one of the two.
+
+    Args: town=<slug> | town_id=<id>
+    """
+
+    def run_op(self, argmap):
+        town = argmap.getStr("town", "")
+        town_id = argmap.getInt("town_id", -1)
+        assert bool(town) != (town_id != -1), "Pass exactly one of town=<slug> or town_id=<id>"
+
+        conn = DB.get_connection()
+        if town:
+            townrow = conn.execute("SELECT id, slug FROM town WHERE slug = ?", (town,)).fetchone()
+            assert townrow, f"No town with slug {town}"
+        else:
+            townrow = conn.execute("SELECT id, slug FROM town WHERE id = ?", (town_id,)).fetchone()
+            assert townrow, f"No town with id {town_id}"
+        town_id, slug = townrow
+
+        rows = conn.execute(
+            """
+            SELECT c.id, c.name, c.phone, c.email, c.web_site,
+                   GROUP_CONCAT(p.id, ',')
+            FROM contact_info c
+            JOIN contact_project cp ON cp.contact_id = c.id
+            JOIN projects p ON p.id = cp.project_id
+            WHERE p.town_id = ?
+            GROUP BY c.id
+            ORDER BY c.name, c.id
+            """,
+            (town_id,),
+        ).fetchall()
+
+        print(f"{len(rows)} contact(s) for town {town_id} ({slug}):")
+        for contact_id, name, phone, email, web_site, projids in rows:
+            print(f"  #{contact_id:<4} {name or '(no name)'}")
+            print(f"        phone={phone or '-'}  email={email or '-'}  web_site={web_site or '-'}  projects={projids}")
+
+
 class LogAnalysisTool:
     """Record a timestamped note that a document has been manually
     analyzed (analysis_log table) - e.g. "checked pages 40-60, no new
@@ -603,6 +698,25 @@ class DbStatusTool:
                 for project_id, short_desc, mdlen, doccount, tag_set in projrows:
                     print(f"  #{project_id:<4} {short_desc or '(no short_desc)':60}  "
                           f"md_chars={mdlen or 0}  linked_docs={doccount}  tags={tag_set or '(untagged)'}")
+
+
+class RunQueryTool:
+    """Run the SQL statement in the hardcoded file working/QUERY.sql against
+    the SQLite DB (see plan_db.py for the schema) and print the results as
+    tab-separated rows under a header line. The connection is read-only,
+    so only SELECT-style queries work - use the dedicated tools to write.
+    One statement per file.
+
+    Args: (none - write working/QUERY.sql, then run this)
+    """
+
+    def run_op(self, argmap):
+        columns, rows = DB.run_query()
+
+        print("\t".join(columns))
+        for row in rows:
+            print("\t".join("" if v is None else str(v) for v in row))
+        print(f"({len(rows)} row(s))")
 
 
 class UpdateDbTool:

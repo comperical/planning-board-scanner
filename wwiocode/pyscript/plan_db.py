@@ -45,6 +45,10 @@ DB_PATH = Path("/opt/userdata/db4widget/dburfoot/PLANSCAN_DB.sqlite")
 # update_documents_from_json() for the expected shape.
 DB_UPDATE_PATH = WORK_DIR / "DB_UPDATE.json"
 
+# Hardcoded input for the RunQuery tool (plan_entry.py) - one SQL statement,
+# run against a read-only connection.
+QUERY_PATH = WORK_DIR / "QUERY.sql"
+
 # Naming convention for editing a project by hand (see the ApplyProjectEdit
 # tool in plan_entry.py / sync_project_from_files() below): to update
 # project <id>, write working/project_edit/<id>.md (the full_md_text field
@@ -164,6 +168,24 @@ CREATE TABLE IF NOT EXISTS analysis_log (
     notes               TEXT
 );
 
+-- A person or organization involved in projects (applicant, owner,
+-- engineer, attorney, etc). Curated by hand, like projects.
+CREATE TABLE IF NOT EXISTS contact_info (
+    id                  INTEGER PRIMARY KEY,
+    name                TEXT,              -- e.g. "Jane Smith" or "Acme Engineering LLC"
+    phone               TEXT,
+    email               TEXT,
+    web_site            TEXT
+);
+
+-- Many-to-many link between contacts and projects.
+CREATE TABLE IF NOT EXISTS contact_project (
+    id                  INTEGER PRIMARY KEY,
+    contact_id          INTEGER NOT NULL REFERENCES contact_info(id) ON DELETE CASCADE,
+    project_id          INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    UNIQUE(contact_id, project_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_scan_log_town ON scan_log(town_id);
 CREATE INDEX IF NOT EXISTS idx_documents_town ON documents(town_id);
 CREATE INDEX IF NOT EXISTS idx_pages_document ON pages(document_id);
@@ -174,6 +196,8 @@ CREATE INDEX IF NOT EXISTS idx_projects_town ON projects(town_id);
 CREATE INDEX IF NOT EXISTS idx_project_documents_project ON project_documents(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_documents_document ON project_documents(document_id);
 CREATE INDEX IF NOT EXISTS idx_analysis_log_document ON analysis_log(document_id);
+CREATE INDEX IF NOT EXISTS idx_contact_project_contact ON contact_project(contact_id);
+CREATE INDEX IF NOT EXISTS idx_contact_project_project ON contact_project(project_id);
 """
 
 
@@ -553,6 +577,29 @@ def link_project_document(conn, project_id, document_id, page_number=None):
     conn.commit()
 
 
+def create_contact(conn, name="", phone="", email="", web_site=""):
+    """Create a new contact_info row and return its id. Like create_project,
+    there's no upsert-by-key - each call makes a new row."""
+
+    cur = conn.execute(
+        "INSERT INTO contact_info (name, phone, email, web_site) VALUES (?, ?, ?, ?)",
+        (name, phone, email, web_site),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def link_contact_project(conn, contact_id, project_id):
+    """Record that contact_id is involved in project_id. Safe to call
+    repeatedly - the (contact_id, project_id) pair is unique."""
+
+    conn.execute(
+        "INSERT OR IGNORE INTO contact_project (contact_id, project_id) VALUES (?, ?)",
+        (contact_id, project_id),
+    )
+    conn.commit()
+
+
 def log_analysis(conn, file_path, notes="", *, source_url=None):
     """Record a pass of manual analysis over file_path - a timestamped
     analysis_log row with a short free-text note (e.g. "checked pages
@@ -625,6 +672,23 @@ def sync_project_from_files(conn, project_id):
         jsonpath.unlink()
 
     return project_id
+
+
+def run_query(path=QUERY_PATH, db_path=DB_PATH):
+    """Run the single SQL statement in path against a read-only connection
+    (so it can't modify the DB - use the dedicated tools for writes) and
+    return (column_names, rows)."""
+
+    sql = Path(path).read_text(encoding="utf-8").strip()
+    assert sql, f"{path} is empty"
+
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        cur = conn.execute(sql)
+        columns = [d[0] for d in cur.description or []]
+        return columns, cur.fetchall()
+    finally:
+        conn.close()
 
 
 def load_json_output(path=WORK_DIR / "OUTPUT.txt"):
