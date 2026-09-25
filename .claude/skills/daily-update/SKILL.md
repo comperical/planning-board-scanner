@@ -1,16 +1,17 @@
 ---
 name: daily-update
-description: The morning protocol that brings every town up to date - re-scan each town whose last good scan is 7+ days old, analyze every newly found document, and finish with a DailyReport summary. Use when asked to "run the daily update", "do the morning run", "bring the towns up to date", or /daily-update.
+description: The morning protocol that brings every town up to date - re-scan each town whose last good scan is 7+ days old, analyze every newly found document, find contacts for the new projects, and finish with a DailyReport summary. Use when asked to "run the daily update", "do the morning run", "bring the towns up to date", or /daily-update.
 ---
 
 # Daily Update
 
 One run per morning. It sets the order and the limits, and relies on the
-other two skills for the actual work - load and follow them for each step:
+other skills for the actual work - load and follow them for each step:
 
 - **planning-board-scanner** - permissions (one bare command per call, no
   pipes/chaining), scan logging, download/ingest tools.
 - **analyze-planning-file** - the per-document analysis loop.
+- **contact-search** - finding and recording contacts for projects.
 
 Don't ask for confirmation between steps; run straight through to the
 report. Only stop early if something is broken across the board (e.g. the
@@ -85,7 +86,17 @@ rules: check existing projects before creating, tag every project, update
 stage tags when a document moves a project forward, `LinkProject` with
 `page=`, and always `LogAnalysis`.
 
-## 3. Report
+## 3. Find contacts for today's new projects
+
+Run the contact-search loop over the projects created in step 2 (the
+report's "New projects" list; highest `project_id`s first, which is the
+skill's default order). **Cap it at 15 projects per run** - on a heavy day
+prioritize `large` projects and those with a named developer/builder or
+engineer, and let the rest wait for the next run or a standalone
+`/contact-search`. Keep the skill's rules: check existing contacts before
+creating, reuse firms across projects, and don't record guessed details.
+
+## 4. Report
 
 ```bash
 wwiocode/pyscript/plan_entry.py DailyReport
@@ -96,9 +107,11 @@ you're reporting on a missed day.) Save its output as
 `working/reports/<YYYY-MM-DD>.md` with the Write tool, adding a short
 **Highlights** section at the top in your own words: the 3-5 most notable
 items for trades pros - new large projects, approvals, projects moving to
-construction - and any towns that FAILED and why.
+construction - and any towns that FAILED and why. Add a line on contacts:
+projects covered, contacts created vs reused.
 
 End the session with a short message: the highlights, counts (towns
-scanned / failed, new documents, new and updated projects), the path to the
+scanned / failed, new documents, new and updated projects, contacts added),
+the path to the
 saved report, and how many towns are still due (from the report's
 "Outstanding" section).
