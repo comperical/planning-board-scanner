@@ -13,6 +13,12 @@ standard CivicPlus Agenda Center (see PATTERNS.md) — no bot protection.
   Center: `/AgendaCenter/Planning-Board-15`.
 - Meetings held at the "Community Development Meeting Room," 3 N Lowell
   Road, 7pm, roughly biweekly.
+- The Planning Board section also carries subcommittee rows (Growth
+  Management, CIP) - skip them. Site-walk rows can point at the same file
+  twice (9/2/2026: `-3028` and `-3029` were byte-identical).
+- No minutes posted since 7/15/2026 (agenda-only lately).
+- **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare);
+  browser `<a download>` + `ClaimDownload` works.
 
 ## Document content
 

@@ -20,6 +20,11 @@ Small Rockingham County town. Platform: standard CivicPlus Agenda Center
   site/module migration artifact) — dedupe by date+title, not docid
   alone.
 - Meetings: 2nd & 4th Thursday, 7:30pm, Town Hall, 210 Main Street.
+- **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare) on
+  ViewFile URLs. Browser `<a download>` + `ClaimDownload` works.
+- Agendas are now posted as **`.docx`** (Aug-Sep 2026), minutes as PDF.
+  Browser-downloaded minutes save as `-{MMDDYYYY}-{id}.pdf` - rename on
+  `ClaimDownload` (`name=YYYY.MM.DD_PB_Minutes.pdf`).
 
 ## Document content
 

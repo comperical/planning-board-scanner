@@ -26,8 +26,17 @@ PATTERNS.md). No bot protection encountered.
   the meeting entry id). Minutes: `/assets/municipal/10/minutes/
   {MMDDYYYY}_Minutes_Official_.pdf` (the `10` matches the entity id).
   Openly `FetchUrl`-able, no referer/cookie gate.
-- Meetings: 4th Thursday monthly, 6:30pm, Town Hall (allowing for holiday
-  shifts).
+- Meetings (2026): regular meeting ~4th Wednesday + a Work Session ~2nd
+  Wednesday, plus per-case Site Walks (with their own minutes). The
+  listing also carries Steering Committee / CIP Subcommittee rows - skip.
+- Quick enumeration (2026-09-24): in the browser, `fetch('/agenda/{slug}')`
+  each meeting's detail page and read `/file/...` + `assets/.../minutes/...`
+  hrefs. Minutes are posted fast (draft within ~2 weeks). A meeting can
+  list the agenda twice under different file ids (revision) - take the
+  higher id. Public notices for big cases are posted as extra files
+  (e.g. `Mixed_Use_notice...pdf`, `CUP_Public_Notice.pdf`).
+- `FetchUrl` saves agenda files with a **leading space** in the filename
+  (` 09232026.pdf`) - quote the `pdf=` arg.
 
 ## Document content
 

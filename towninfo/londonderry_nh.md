@@ -54,6 +54,11 @@ Center (see PATTERNS.md) — no bot protection.
 
 ## Open items for later
 
-- Sample a "Planning Board Regular Meeting Materials" link too, to check
-  whether it's a full packet or (as seen in Salem) just an index/cover
-  page.
+- ~~Sample a "Materials" link.~~ Done 2026-09-24: the plain "Materials"
+  ViewFile is the **full agenda text** (1-2pp, rich), not an index. Each
+  row also has a `?packet=true` link for the merged packet (plans/staff
+  reports) - not taken routinely.
+- **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare); browser
+  `<a download>` + `ClaimDownload` works (saves as `{MMDDYYYY}.pdf`).
+- No minutes posted in the Agenda Center section for 2026. Agendas go up
+  ~2 weeks ahead.

@@ -28,6 +28,15 @@ no bot protection.
   `PdfExtractText` recovers — likely PDF-internal bookmarks/attachments
   or a Legistar-style packet structure. Getting the full sub-documents is
   an open problem.
+- **RESOLVED 2026-09-24: full packet = `ViewFile/Agenda/_{date}-{id}?packet=true`**
+  (a second link on the same listing row). It merges the index plus every
+  constituent PDF - e.g. 9/22/2026 packet was 100MB / 186pp, 10/13 was
+  10MB / 17pp. Downloads as `{MMDDYYYY}Plus.pdf`. Large packets take a
+  while; poll the session (`eval "() => 1"`) until the "Downloaded file"
+  event appears before `ClaimDownload`.
+- **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare) on
+  ViewFile URLs. Browser `<a download>` + `ClaimDownload` works.
+- Agendas are posted ~3 weeks ahead (10/13 materials up on 9/24).
 - Meetings: 2nd & 4th Tuesday, 7pm, Knightly Meeting Room, Salem Town
   Hall.
 
@@ -45,7 +54,7 @@ no bot protection.
 
 ## Open items for later
 
-- Figure out how to reach the individual sub-document PDFs referenced in
-  Salem's "Materials" index.
+- ~~Figure out how to reach the individual sub-document PDFs referenced in
+  Salem's "Materials" index.~~ Done - use `?packet=true` (see above).
 - Evaluate `news.salemnh.gov` Planning Board recap posts as an alternate,
   possibly higher-signal-per-byte data source.

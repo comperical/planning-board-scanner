@@ -16,6 +16,11 @@ Agenda Center (see PATTERNS.md) — no bot protection.
   `.gov`): `/agendacenter`, section at `/AgendaCenter/Planning-Board-{n}`
   (exact n not confirmed — reached via a direct `ViewFile` URL from search
   results).
+- 2026-09-24: town-wide `https://auburnnh.gov/AgendaCenter` lists the
+  Planning Board section (h2 "Planning Board") with agendas + minutes -
+  no need for the `.us` site. Meets ~3rd Wednesday monthly; no July 2026
+  meeting. Browser `<a download>` + `ClaimDownload` used for files
+  (FetchUrl not retested).
 - Uses a **case-number system** (e.g. "P26-03", "P26-05") tagging each
   agenda item — useful for tracking one application across meetings.
 

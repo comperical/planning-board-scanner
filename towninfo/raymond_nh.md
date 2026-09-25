@@ -27,6 +27,18 @@ this project. No bot protection on either domain.
   by name and case number, a strong direct signal source independent of
   the main agenda text. Separate "Meeting Documents" category too.
 - Meetings frequent: near-weekly, plus separate "Work Session" agendas.
+- **Minutes and Meeting Documents sections lazy-load on scroll** (show
+  "Loading..." until scrolled into view; clicking the year link doesn't
+  load them). In the browser, `scrollIntoView()` on
+  `#category-752819457` (Minutes) / `#category-752819458` (Meeting
+  Documents), wait ~2s, then read the `a[href*="/document/"]` links.
+  Agendas section is loaded up front.
+- Minutes are posted quickly (as "DRAFT", within ~2 weeks), including
+  separate site-walk minutes per case - prefer them over the agenda.
+- Meeting Documents (per-case support docs) had nothing for 2026 as of
+  2026-09-24 (latest Dec 2025).
+- **eCode360 rate-limits**: 429 after ~6 rapid `FetchUrl`s; a retry a
+  minute later works.
 
 ## Document content
 

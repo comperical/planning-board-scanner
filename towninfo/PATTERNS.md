@@ -25,8 +25,25 @@ module in use matters more than "it's CivicPlus":
    `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}`, sometimes with
    a harmless `?html=true` suffix (safe to strip). `{id}` is an opaque
    incrementing item id, not derivable from the date — scrape it from the
-   listing. Confirmed `FetchUrl`-able directly on every town using this
-   module. Recurring quirks:
+   listing. Recurring quirks:
+   - ⚠️ **Cloudflare now fronts ViewFile on most Agenda Center towns
+     (spreading since ~2026-09-20)**: plain `FetchUrl` 403s. Confirmed
+     2026-09-24 at epping, danville, hampstead, salem, windham (+ durham,
+     rye earlier); chester and sandown still passed `FetchUrl` that day.
+     Default to browser `<a download>` + `ClaimDownload` for Agenda Center
+     files. Several can be clicked in one `eval` with a ~2.5s gap between
+     clicks. Minutes download as `-{MMDDYYYY}-{id}.pdf`, so pass `name=` to
+     `ClaimDownload`.
+   - **`?packet=true`** on an Agenda ViewFile URL (shown as a second link
+     on the same row where enabled) returns the merged packet (agenda +
+     every attachment), e.g. salem, londonderry, durham. Can be 100MB+;
+     poll the session (`eval "() => 1"`) until "Downloaded file" appears
+     before `ClaimDownload`.
+   - Listing scrape without a snapshot: `eval` over `tr` elements, keep
+     those whose `closest('.listing').querySelector('h2')` matches
+     /^planning board/i, and read their `a[href*=ViewFile]`. This works
+     even when the section is visually collapsed (the rows are in the
+     DOM).
    - When `Content-Disposition` is missing, the saved filename falls back
      to the bare `_{date}-{id}` with **no extension** — it's still a real
      PDF, just rename/inspect before assuming otherwise. Seen at: chester,

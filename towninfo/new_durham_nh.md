@@ -25,7 +25,17 @@ PATTERNS.md). No bot protection.
   (`get_agenda_document_link`) identical across every document on the
   platform — rename immediately after each fetch or it will silently
   overwrite the previous file.
-- Meetings: e.g. "Planning Board Workshop" 3rd Monday-ish, 7pm.
+- Meetings: "Business Meeting" 1st Tuesday, "Workshop" 3rd Tuesday, 7pm,
+  plus frequent per-case "Site Walk" entries (thin notices - skip).
+- **Filename-collision workaround (2026-09-24):** write a placeholder
+  `working/new_durham_nh/{agendaId}/.keep`, then
+  `FetchUrl ... dest=working/new_durham_nh/{agendaId}` - one folder per
+  agenda id keeps each `get_agenda_document_link` distinct. (Browser
+  `<a download>` doesn't work here: towncloud.io is cross-origin.)
+- To pull only PB rows without a snapshot: `eval` over
+  `a[href*=towncloud]`, walking up to the nearest ancestor whose short
+  innerText matches /planning/i.
+- No minutes found on `/agendas` (agendas + packets only).
 
 ## Document content
 

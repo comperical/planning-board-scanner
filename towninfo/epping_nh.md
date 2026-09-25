@@ -16,6 +16,13 @@ protection.
 - Agenda Center section here is labeled **"Planning Board Agenda"** and
   loads already expanded.
 - Meetings: 2nd Thursday monthly, 6pm.
+- **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare) on
+  ViewFile URLs. Browser `<a download>` + `ClaimDownload` works (saves
+  under the real filename, e.g. `081326pbag.pdf`). The listing page itself
+  still loads in the headed session.
+- Planning Board rows are mixed into the town-wide Agenda Center with
+  inconsistent titles ("Planning Board agenda", "Planningboard Agenda") -
+  filter rows by /planning/i.
 
 ## Document content
 

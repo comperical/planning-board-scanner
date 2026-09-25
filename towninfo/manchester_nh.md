@@ -21,6 +21,12 @@ Manchester is NH's largest city, on a custom DotNetNuke/"Portals" CMS
   the Jan 8, 2026 meeting alone) — take the latest revision.
 - Meetings: twice monthly (1st & 3rd, roughly), 6pm, Aldermanic Chambers,
   3rd Floor, City Hall.
+- **Minutes page** (2026-09-24): `/Departments/Planning-and-Comm-Dev/
+  Planning-Board/Minutes` - same flat style, files at
+  `/Portals/2/Departments/pcd/BoardsCommissions/PlanningBoard/Minutes/
+  {YYYY-MM-DD}_PB_MINUTES-APPROVED.PDF`. Only approved minutes are
+  posted, ~6 weeks behind (8/5 was newest on 9/24). Rich (23pp for 8/5).
+- Agendas are posted ~2 weeks ahead.
 
 ## Document content
 
