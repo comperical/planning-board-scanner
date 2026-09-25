@@ -68,11 +68,14 @@ function getNextUpDisplay(townid) {
 	return dated.map(doc => doc.getDocDate()).sort().reverse()[0];
 }
 
-// Most recent scan_log alpha_time_est for this town ("YYYY-MM-DD HH:MM:SS"
-// UTC strings, so they sort lexically), or null if never scanned.
+// Most recent good scan_log alpha_time_est for this town ("YYYY-MM-DD HH:MM:SS"
+// UTC strings, so they sort lexically), or null if never scanned. Same rule as
+// NextToScan: unclosed passes and ones whose notes start with FAILED don't count.
 function getLastScanTime(townid) {
 	const timelist = W.getItemList('scan_log')
 		.filter(scan => scan.getTownId() == townid)
+		.filter(scan => scan.getOmegaTimeEst() != null)
+		.filter(scan => !(scan.getNotes() || "").startsWith("FAILED"))
 		.map(scan => scan.getAlphaTimeEst())
 		.filter(t => t != null);
 	if(timelist.length == 0) { return null; }

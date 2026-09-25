@@ -299,6 +299,11 @@ class EndScanLogTool:
     to Jan 2026, found 3 new PDFs") - omitting it leaves any notes already
     set (e.g. from StartScanLog) unchanged.
 
+    If the site couldn't be checked (down, blocked, layout changed beyond
+    what towninfo describes), start notes with "FAILED" (e.g.
+    notes="FAILED: Cloudflare challenge never cleared") - NextToScan
+    ignores such passes, so the town is retried on the next run.
+
     Args: scan_id=<id>  [notes=...]
     """
 
@@ -562,28 +567,40 @@ class NextToAnalyzeTool:
 class NextToScanTool:
     """List towns in the order they should next be re-scanned (checked for
     new files): towns with no scan_log rows first, then by oldest most
-    recent scan pass (alpha_time_est). The scan-side counterpart of
-    NextToAnalyze. Also lists towninfo/<slug>.md write-ups that have no
-    town row in the DB yet, since those have never been scanned either.
+    recent *good* scan pass (alpha_time_est). A pass only counts as good if
+    it was closed with EndScanLog and its notes don't start with "FAILED" -
+    so a town whose site was down or blocked comes straight back up next
+    time. The scan-side counterpart of NextToAnalyze. Also lists
+    towninfo/<slug>.md write-ups that have no town row in the DB yet, since
+    those have never been scanned either.
 
     Args: [limit=<n>]  (default 10; 0 = all towns)
+          [due_days=<n>]  (only towns whose last good scan is at least n days old; default 0 = no filter)
     """
 
     def run_op(self, argmap):
         limit = argmap.getInt("limit", 10)
+        due_days = argmap.getInt("due_days", 0)
 
         conn = DB.get_connection()
         rows = conn.execute(
             """
             SELECT t.slug, MAX(s.alpha_time_est), COUNT(s.id),
-                   CAST(julianday('now') - julianday(MAX(s.alpha_time_est)) AS INTEGER)
+                   julianday('now') - julianday(MAX(s.alpha_time_est))
             FROM town t LEFT JOIN scan_log s ON s.town_id = t.id
+                 AND s.omega_time_est IS NOT NULL
+                 AND COALESCE(s.notes, '') NOT LIKE 'FAILED%'
             GROUP BY t.id
             ORDER BY MAX(s.alpha_time_est) IS NOT NULL, MAX(s.alpha_time_est), t.slug
             """
         ).fetchall()
-
         knownset = {slug for slug, _, _, _ in rows}
+        # 0.25 day of slack, so a town scanned at 10am a week ago still counts as
+        # due at 7am today (daily runs won't start at the same time every day).
+        if due_days > 0:
+            rows = [r for r in rows if r[3] is None or r[3] >= due_days - 0.25]
+        rows = [(slug, last, count, None if days is None else int(days)) for slug, last, count, days in rows]
+
         infodir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "towninfo")
         # Only <town>_<st>.md files - skips non-town notes like PATTERNS.md
         missing = sorted(fname[:-3] for fname in os.listdir(infodir)
@@ -596,12 +613,130 @@ class NextToScanTool:
             print()
 
         shown = rows if limit == 0 else rows[:limit]
-        print(f"Towns by scan staleness ({len(shown)} of {len(rows)}):")
+        duenote = f", due = last good scan >= {due_days}d ago" if due_days > 0 else ""
+        print(f"Towns by scan staleness ({len(shown)} of {len(rows)}{duenote}):")
         for slug, lastscan, scancount, daysago in shown:
             if lastscan is None:
                 print(f"  {slug:30}  never scanned")
             else:
-                print(f"  {slug:30}  last scan {lastscan}  ({daysago}d ago, {scancount} pass(es))")
+                print(f"  {slug:30}  last good scan {lastscan}  ({daysago}d ago, {scancount} good pass(es))")
+
+
+class DailyReportTool:
+    """Summarize the last hours= of activity (default 24) - the closing
+    step of the daily-update skill: every scan pass (FAILED/unclosed ones
+    first), documents newly discovered by those passes and whether they've
+    been analyzed, projects created, projects whose tags/short_desc changed
+    (e.g. a stage tag moving in-review -> approved), and what's still
+    outstanding (unanalyzed documents, towns still due for a scan).
+
+    Args: [hours=<n>]  (default 24)  [due_days=<n>]  (default 7, for the "still due" count)
+    """
+
+    def run_op(self, argmap):
+        hours = argmap.getInt("hours", 24)
+        due_days = argmap.getInt("due_days", 7)
+        since = f"-{hours} hours"
+
+        conn = DB.get_connection()
+
+        scans = conn.execute(
+            """
+            SELECT s.id, t.slug, s.alpha_time_est, s.omega_time_est, COALESCE(s.notes, ''),
+                   (SELECT COUNT(*) FROM documents d WHERE d.first_scan_id = s.id)
+            FROM scan_log s JOIN town t ON s.town_id = t.id
+            WHERE s.alpha_time_est >= datetime('now', ?)
+            ORDER BY s.alpha_time_est
+            """, (since,)).fetchall()
+
+        def isbad(scan):
+            return scan[3] is None or scan[4].startswith("FAILED")
+
+        bad = [sc for sc in scans if isbad(sc)]
+        print(f"# Daily report - last {hours}h")
+        print()
+        print(f"## Scans: {len(scans)} pass(es), {len(bad)} failed/unclosed, "
+              f"{sum(sc[5] for sc in scans)} new document(s)")
+        for scan_id, slug, _, omega, notes, newdocs in bad + [sc for sc in scans if not isbad(sc)]:
+            flag = "UNCLOSED " if omega is None else ""
+            print(f"- {flag}{slug} (scan {scan_id}, {newdocs} new): {notes}")
+        print()
+
+        docs = conn.execute(
+            """
+            SELECT d.file_path, t.slug, d.doc_date,
+                   (SELECT COUNT(*) FROM analysis_log a WHERE a.document_id = d.id),
+                   (SELECT notes FROM analysis_log a WHERE a.document_id = d.id ORDER BY a.id DESC LIMIT 1)
+            FROM documents d JOIN town t ON d.town_id = t.id
+            JOIN scan_log s ON d.first_scan_id = s.id
+            WHERE s.alpha_time_est >= datetime('now', ?)
+            ORDER BY t.slug, d.doc_date
+            """, (since,)).fetchall()
+        print(f"## New documents: {len(docs)}")
+        for path, slug, docdate, nanalysis, notes in docs:
+            status = f"analyzed: {notes}" if nanalysis else "NOT YET ANALYZED"
+            print(f"- {slug} {docdate or '?'} {path} - {status}")
+        print()
+
+        newprojects = conn.execute(
+            """
+            SELECT p.id, t.slug, COALESCE(p.short_desc, ''), COALESCE(p.tag_set, '')
+            FROM projects p JOIN town t ON p.town_id = t.id
+            WHERE p.created_at >= datetime('now', ?)
+            ORDER BY t.slug, p.id
+            """, (since,)).fetchall()
+        print(f"## New projects: {len(newprojects)}")
+        for project_id, slug, desc, tags in newprojects:
+            print(f"- #{project_id} {slug}: {desc}  [{tags}]")
+        print()
+
+        # First and last value per (project, field) within the window, for
+        # projects that existed before it (new ones are covered above).
+        changes = conn.execute(
+            """
+            SELECT h.project_id, t.slug, COALESCE(p.short_desc, ''), h.field,
+                   (SELECT old_value FROM project_history h2 WHERE h2.project_id = h.project_id
+                        AND h2.field = h.field AND h2.changed_at >= datetime('now', ?) ORDER BY h2.id LIMIT 1),
+                   (SELECT new_value FROM project_history h2 WHERE h2.project_id = h.project_id
+                        AND h2.field = h.field AND h2.changed_at >= datetime('now', ?) ORDER BY h2.id DESC LIMIT 1)
+            FROM project_history h
+            JOIN projects p ON h.project_id = p.id
+            JOIN town t ON p.town_id = t.id
+            WHERE h.changed_at >= datetime('now', ?)
+              AND (p.created_at IS NULL OR p.created_at < datetime('now', ?))
+            GROUP BY h.project_id, h.field
+            ORDER BY t.slug, h.project_id, h.field DESC
+            """, (since, since, since, since)).fetchall()
+        changedids = sorted({c[0] for c in changes})
+        print(f"## Updated projects: {len(changedids)}")
+        for project_id, slug, desc, field, oldval, newval in changes:
+            if oldval == newval:
+                continue
+            if field == "tag_set":
+                oldset = set(filter(None, (oldval or "").split(",")))
+                newset = set(filter(None, (newval or "").split(",")))
+                diff = " ".join([f"+{t}" for t in sorted(newset - oldset)] + [f"-{t}" for t in sorted(oldset - newset)])
+                print(f"- #{project_id} {slug}: {desc}  tags {diff}")
+            else:
+                print(f"- #{project_id} {slug}: short_desc was \"{oldval}\"")
+        print()
+
+        unanalyzed = conn.execute(
+            "SELECT COUNT(*) FROM documents d WHERE NOT EXISTS (SELECT 1 FROM analysis_log a WHERE a.document_id = d.id)"
+        ).fetchone()[0]
+        stilldue = conn.execute(
+            """
+            SELECT COUNT(*) FROM (
+                SELECT t.id, MAX(s.alpha_time_est) AS lastgood
+                FROM town t LEFT JOIN scan_log s ON s.town_id = t.id
+                     AND s.omega_time_est IS NOT NULL
+                     AND COALESCE(s.notes, '') NOT LIKE 'FAILED%'
+                GROUP BY t.id)
+            WHERE lastgood IS NULL OR julianday('now') - julianday(lastgood) >= ? - 0.25
+            """, (due_days,)).fetchone()[0]
+        print("## Outstanding")
+        print(f"- {unanalyzed} document(s) not yet analyzed")
+        print(f"- {stilldue} town(s) still due for a scan (last good scan >= {due_days}d ago)")
 
 
 class DocDetailTool:

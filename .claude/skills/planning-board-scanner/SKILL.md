@@ -104,6 +104,11 @@ what you found (or didn't):
 wwiocode/pyscript/plan_entry.py EndScanLog scan_id=12 notes="checked Agenda Center back to Jan 2026, found 2 new PDFs"
 ```
 
+If the site couldn't be checked (down, blocked, archive moved), start the
+notes with `FAILED:` (`notes="FAILED: Cloudflare challenge never cleared"`) -
+`NextToScan` ignores FAILED and unclosed passes, so the town comes back up
+on the next run.
+
 Do this even if the pass turned up nothing new (`notes="no new files since last scan"`) -
 same principle as always calling `LogAnalysis` in the analyze-planning-file
 skill: a scan pass with no `scan_log` row is invisible to anything that
@@ -111,7 +116,9 @@ later wants to know when a town was last checked.
 
 To pick which town to re-scan next, run
 `wwiocode/pyscript/plan_entry.py NextToScan` (`limit=0` for all towns) -
-never-scanned towns first, then oldest last scan pass. It's the scan-side
+never-scanned towns first, then oldest last good scan pass; add
+`due_days=7` to list only towns that are due. The routine morning run
+over all due towns is the `daily-update` skill. It's the scan-side
 counterpart of `NextToAnalyze`; `towns.wisp` shows the same thing as its
 "Last Scanned" column / "Next To Scan" sort.
 

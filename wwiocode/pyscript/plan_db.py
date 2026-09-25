@@ -148,7 +148,21 @@ CREATE TABLE IF NOT EXISTS projects (
     town_id             INTEGER REFERENCES town(id),
     short_desc          TEXT,              -- one-line summary, e.g. "150 Portsmouth Blvd - 3-building multifamily"
     full_md_text        TEXT,              -- full markdown write-up: description, status, addresses, applicant, etc.
-    tag_set             TEXT DEFAULT ''    -- comma-separated set of tags, e.g. "residential,multifamily"; '' = no tags
+    tag_set             TEXT DEFAULT '',   -- comma-separated set of tags, e.g. "residential,multifamily"; '' = no tags
+    created_at          TEXT               -- UTC timestamp, datetime('now'); NULL for rows created before this column existed
+);
+
+-- One row per change to a project's short_desc or tag_set (written by
+-- update_project), so a daily report can show what moved - e.g. a stage tag
+-- going in-review -> approved. full_md_text isn't tracked (too large; the
+-- short_desc/tag_set change usually tells the story).
+CREATE TABLE IF NOT EXISTS project_history (
+    id                  INTEGER PRIMARY KEY,
+    project_id          INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    changed_at          TEXT NOT NULL,     -- UTC timestamp, datetime('now')
+    field               TEXT NOT NULL,     -- "short_desc" or "tag_set"
+    old_value           TEXT,
+    new_value           TEXT
 );
 
 -- Links a project to every document that mentions it (a project is
@@ -238,6 +252,9 @@ def _run_migrations(conn):
     cols = {row[1] for row in conn.execute("PRAGMA table_info(projects)")}
     if "tag_set" not in cols:
         conn.execute("ALTER TABLE projects ADD COLUMN tag_set TEXT DEFAULT ''")
+    if "created_at" not in cols:
+        # SQLite's ADD COLUMN can't take a datetime('now') default - create_project sets it explicitly
+        conn.execute("ALTER TABLE projects ADD COLUMN created_at TEXT")
 
     cols = {row[1] for row in conn.execute("PRAGMA table_info(contact_info)")}
     if "company" not in cols:
@@ -246,6 +263,7 @@ def _run_migrations(conn):
     # Index creation deferred here (rather than in SCHEMA) since the column
     # above may not exist yet on an older database at the point SCHEMA runs.
     conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_first_scan ON documents(first_scan_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_project_history_project ON project_history(project_id)")
 
 
 def _town_slug_from_path(file_path):
@@ -489,7 +507,7 @@ def create_project(conn, town_slug, short_desc="", full_md_text=""):
     town_id = get_or_create_town(conn, town_slug)
 
     cur = conn.execute(
-        "INSERT INTO projects (town_id, short_desc, full_md_text) VALUES (?, ?, ?)",
+        "INSERT INTO projects (town_id, short_desc, full_md_text, created_at) VALUES (?, ?, ?, datetime('now'))",
         (town_id, short_desc, full_md_text),
     )
     conn.commit()
@@ -546,7 +564,18 @@ def normalize_tag_set(tags, vocab=None):
 def update_project(conn, project_id, *, short_desc=None, full_md_text=None, tag_set=None):
     """Update short_desc, full_md_text and/or tag_set on an existing
     project row. Only the fields given (not None) are changed. tag_set must
-    already be normalized (see normalize_tag_set)."""
+    already be normalized (see normalize_tag_set). Changes to short_desc/
+    tag_set are also logged to project_history."""
+
+    row = conn.execute("SELECT short_desc, tag_set FROM projects WHERE id = ?", (project_id,)).fetchone()
+    assert row is not None, f"No project with id {project_id}"
+    for field, oldval, newval in (("short_desc", row[0], short_desc), ("tag_set", row[1], tag_set)):
+        if newval is not None and newval != (oldval or ""):
+            conn.execute(
+                "INSERT INTO project_history (project_id, changed_at, field, old_value, new_value) "
+                "VALUES (?, datetime('now'), ?, ?, ?)",
+                (project_id, field, oldval, newval),
+            )
 
     fields, values = [], []
     if short_desc is not None:
