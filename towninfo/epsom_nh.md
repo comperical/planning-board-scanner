@@ -33,6 +33,18 @@ PATTERNS.md) — no bot protection encountered.
   future scans in case that changes.
 - Sample doc downloaded: `Planning Board Agenda 9.9.2026.pdf` (1 pg).
 
+## Scan notes (2026-09-25)
+
+- Tree path: `find "Planning Board Agendas"` -> click -> `find "2026"` ->
+  click -> `find "September"` -> click -> `find "View"` shows each item's
+  `View` button ref. Two Sept items appear (9.9.2026 and 9.23.26), newest
+  first. Click a View button, then `requests` (look for the 200
+  `viewBlob` GET) and `response-body <index>`.
+- ⚠️ While the Adobe PDF viewer dialog is open it blocks clicks on the
+  rest of the tree - `goto` the page again before opening another month.
+- Older months (Aug/Jul/Jun/May 2026) exist but hadn't been pulled as of
+  2026-09-25.
+
 ## Open items for later
 
 - None blocking — access path fully resolved. Future scans: repeat the

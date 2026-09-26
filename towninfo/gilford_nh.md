@@ -26,9 +26,21 @@ analyzed.**
 - `/file/{id}/...` is openly `FetchUrl`-able, no hotlink gate (unlike
   Kingston/Madbury's `/media/{id}`).
 
-## Document content
+## Scan notes (2026-09-25)
 
-- Not yet text-analyzed (blocked on docx extraction).
+- `IngestPdfTool` now accepts `.docx` - Gilford's docx notices/agendas ingest
+  fine (`pdf=working/gilford_nh/<file>.docx`); the extraction blocker is gone.
+- `/agendas/-22` lists meetings (rows: type, "Planning Board", date) but the
+  link text has no date - read each row's text to map `Regular-Meeting-NNNN`
+  slugs to dates. Future meetings are pre-listed through December.
+- Only **Public Hearing** meetings (and an occasional Regular Meeting, e.g.
+  Aug 31 `8-31-26_PB_Agenda.docx`) carry a file; most Regular Meeting pages
+  (9/7, 9/21, 10/5 checked) have no attachment. So the routine is: open each
+  meeting page since the last scan and `eval` `a[href*="/file/"]`.
+- Files: `/file/{id}/{name}.docx`, `FetchUrl` works (content-type reported as
+  application/msword but they ingest as docx).
+
+## Document content
 
 ## Sample files downloaded
 

@@ -20,6 +20,20 @@ Belknap County town, south of Laconia/Gilford. Platform: custom WordPress
 - Live meetings streamed at `youtube.com/@belmontlive`; Zoom links posted
   per-meeting at the bottom of each agenda.
 
+## Scan notes (2026-09-25)
+
+- ⚠️ `/meetings/` (no date) 404s and `/boards/archives/` and
+  `/boards/planning-board/` only show the *upcoming* meeting (no past-
+  meeting list without JS). Reliable route: open the per-meeting page
+  directly, `/meetings/{YYYY-MM-DD}-planning-board-meeting/`, and `eval`
+  its `a[href*=".pdf"]` links. PB meets the 4th Monday (9/28, 8/24, 7/27,
+  6/22, ...) - guess the date and check.
+- ⚠️ The slug date can differ from the meeting date: the `2026-08-24` page
+  is titled "2026-08-31" (rescheduled) and carries `260824PBAgenda.pdf`
+  plus `260831-PB-Minutes.pdf`. Upload folders (`2026/05`, `2026/06`) do
+  not track the meeting month either - read hrefs from the page.
+- Each meeting page has agenda + (later) minutes; minutes are 5-16 pages.
+
 ## Document content
 
 - **Agenda PDF** (Feb 23, 2026, 159KB): real content — `PdfKeywordScan`

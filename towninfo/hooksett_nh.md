@@ -40,7 +40,20 @@ Platform: **Revize** (see PATTERNS.md). No bot protection.
 - `working/hooksett_nh/10212024.pdf` (older sample used to confirm
   platform access; a current-2026 sample not yet pulled)
 
-## Open items for later
+## Current (2026) access - confirmed 2026-09-25
 
-- Work out the exact 2026 file-naming pattern via the accordion UI (the
-  `MMDDYYYY.pdf` guess worked for 2024 but wasn't re-confirmed for 2026).
+- ⚠️ `/agendas_minutes.php` 404s. The live Planning Board page is
+  `https://www.hooksett.gov/government/boards_committees/planning_board/agendas_minutes.php`
+  (linked from `/government/agendas___minutes.php`).
+- On that page the **newest links are listed first, in plain page order**
+  (no accordion click needed for `eval`): use
+  `playwright-cli -s=planscan eval` over `a[href*=".pdf"]` and take `a.href`
+  for absolute URLs. 2026 agendas are NOT named consistently (`9-28-26 PB
+  Agenda_Workshop.pdf`, `0_PB_Agenda_Rev2 (1).pdf` (=9/21), `8-17-26 PB
+  Agenda - Draft.pdf`, `Agenda - 6-1-26.pdf`, ...) and sit at the **site
+  root** (`https://www.hooksett.gov/<file>.pdf`), so read the links from
+  the page - don't guess. A "Planning Board" filter on the href misses
+  them; filter out the Town Council/Departments noise instead.
+- `FetchUrl` works (no bot protection) but saves names with a literal
+  `%20` - quote the path when ingesting.
+- Minutes are posted as drafts (`8.17.2026 PB Minutes DRAFT.pdf`).

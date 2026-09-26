@@ -39,6 +39,25 @@ site itself.
 - Sample doc downloaded: `RPB Mins 7.14.2026 DRAFT.pdf` (3 pg, from the
   2026 Meeting Minutes subfolder).
 
+## Direct folder URLs (confirmed 2026-09-25 - no accordion click needed)
+
+The Drive links ARE in the static HTML of `/minutes-agendas/` (`eval` over
+`a[href*="drive.google"]`; the Planning Board trio is the last group before
+the second "Public Hearing Notices"). Planning Board folders:
+
+- Meeting Minutes: `https://drive.google.com/drive/folders/1qDRJ0czQGW4JF3vhdQ6DXMHvxH3pwy9C`
+  - 2026 subfolder: `.../folders/1SPuXwhQf-zGrqE-RBokfLuWQ8bjJbZ6H`
+    (has `RPB Mins {M.D.YY}.pdf` for 1/6, 2/4, 3/3 (+Non Public), 4/7, 6/2,
+    7/14 DRAFT; nothing later as of 9/25 - minutes lag ~1 week+)
+- Site Review Documents: `.../folders/1D_bpMWApqK007_rYjgO42qhttyu5ZWBr` -
+  checked 2026-09-25: only two old project subfolders ("15 Pease Lane
+  (Cantwell)" Nov 2025, "Dover Gaming 2024"), nothing current.
+- Public Hearing Notices: `.../folders/1uuBZywqaufT-xcTeFt8ck9r1RiCTOJ0e` -
+  still EMPTY on 2026-09-25.
+- List a folder without screenshots: `goto` it, then `eval` over
+  `[data-id]` and read `innerText` (file name, date, size). Subfolder ids
+  are the `data-id` values. No agendas are posted for this board at all.
+
 ## Open items for later
 
 - Haven't yet checked the **Site Review Documents** folder (likely the

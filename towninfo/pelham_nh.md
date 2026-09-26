@@ -41,6 +41,25 @@ embedded on a CivicPlus page. No bot protection encountered.
 - `/223/Meetings` lists only the meeting **schedule** (1st & 3rd Mondays),
   not individual agendas/minutes.
 
+## Working recipe (confirmed 2026-09-25)
+
+The widget renders a few seconds after load - `find`/`eval` return nothing
+until it does (re-run, or take one `snapshot`). Then:
+
+1. `playwright-cli -s=planscan eval "Array.from(document.querySelectorAll('[id^=downloadFilesMenu-]')).filter(b=>!/-menu/.test(b.id)).map(b=>b.id+' | '+b.closest('li').innerText.replace(/\s+/g,' ').slice(0,60)).join('\n')"`
+   lists one `downloadFilesMenu-{eventId}` button per event, with its date.
+   Menus with 2 items = agenda only (PDF/Text); 4 items = agenda + minutes.
+2. `click "#downloadFilesMenu-{id}"`, then
+   `click "getByRole('menuitem', { name: 'Agenda (PDF)' })"` (or
+   `'Minutes (PDF)'`). The PDF lands in `working/playwright_output/`.
+3. ⚠️ The menu **stays open** after a download and its backdrop blocks the
+   next click (5s timeout) - `press Escape` before opening another event.
+4. `ClaimDownload file=working/playwright_output/<f> dest=working/pelham_nh
+   name=<new>.pdf`, then `IngestPdfTool` (use the /866/ page as source_url).
+- Refs from `snapshot` go stale after every click; the id locators don't.
+- Cancelled meetings still list a file ("CANCELED Planning Board Agenda
+  8_17_26.pdf") - skip those.
+
 ## Open items for later
 
 - No stable per-event URL was found (download is a JS click-through, not a

@@ -37,6 +37,17 @@ event/...` search results). No bot protection.
   board-member names, direct quotes) — a strong candidate for full-text
   analysis rather than keyword-scan alone.
 
+## Scan notes (2026-09-25)
+
+- Alton posts **minutes only** - no agenda archive found (`/documents/
+  planning-board-agendas-2026/` 404s; `/document-category/pb/` has only
+  forms, regs and minutes-by-year categories). Newest minutes lag the
+  meeting by ~4 weeks (7/21 was the latest on 9/25; 8/18 not yet up).
+- On the yearly minutes page, link *text* can be wrong (the 2-17-26 file
+  was labelled "7-21-26 PB Minutes Approved") - trust the filename/href.
+- Files `wp-content/uploads/2026/03/{M-D-YY}-PB-Approved.pdf` - all 2026
+  minutes so far sit in the `2026/03` upload folder.
+
 ## Sample files downloaded
 
 - `working/alton_nh/7-21-26-PB-Approved.pdf`
