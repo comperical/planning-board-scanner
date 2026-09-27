@@ -1,6 +1,6 @@
 ---
 name: daily-update
-description: The morning protocol that brings every town up to date - re-scan each town whose last good scan is 7+ days old, analyze every newly found document, find contacts for the new projects, and finish with a DailyReport summary. Use when asked to "run the daily update", "do the morning run", "bring the towns up to date", or /daily-update.
+description: The morning protocol that brings every town up to date - re-scan each town whose last good scan is 7+ days old, analyze every newly found document, find contacts for projects that have none, and finish with a DailyReport summary. Use when asked to "run the daily update", "do the morning run", "bring the towns up to date", or /daily-update.
 ---
 
 # Daily Update
@@ -86,15 +86,19 @@ rules: check existing projects before creating, tag every project, update
 stage tags when a document moves a project forward, `LinkProject` with
 `page=`, and always `LogAnalysis`.
 
-## 3. Find contacts for today's new projects
+## 3. Find contacts for projects that have none
 
-Run the contact-search loop over the projects created in step 2 (the
-report's "New projects" list; highest `project_id`s first, which is the
-skill's default order). **Cap it at 15 projects per run** - on a heavy day
-prioritize `large` projects and those with a named developer/builder or
-engineer, and let the rest wait for the next run or a standalone
-`/contact-search`. Keep the skill's rules: check existing contacts before
-creating, reuse firms across projects, and don't record guessed details.
+**This step is mandatory - never skip it**, even if no towns were due or
+step 2 created no projects (e.g. a re-run after an interruption). Run the
+contact-search loop over projects that have no contacts yet - that includes
+any backlog from earlier runs, not just today's new ones (highest
+`project_id`s first, which is the skill's default order). **Cap it at 15
+projects per run** - prioritize `large` projects and those with a named
+developer/builder or engineer, and let the rest wait for the next run or a
+standalone `/contact-search`. Keep the skill's rules: check existing
+contacts before creating, reuse firms across projects, and don't record
+guessed details. Only if the skill reports no contact-less projects left
+may you move on with zero contacts added.
 
 ## 4. Report
 

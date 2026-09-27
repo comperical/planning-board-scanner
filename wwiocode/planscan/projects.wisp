@@ -42,6 +42,10 @@ const MAIN_TABLE = 'projects';
 
 let EDIT_STUDY_ITEM = -1;
 
+// YYYY-MM-DD; projects whose latest document is older than this are hidden.
+// "" means no cutoff.
+let DATE_CUTOFF = "";
+
 const TOWN_SEL_KEY = "TownSelKey";
 const TAG_SEL_KEY = "TagSelKey";
 const SORT_SEL_KEY = "SortSelKey";
@@ -147,6 +151,19 @@ function getSortComparator(sortkey, docmap) {
 		const latest = getLatestDocDate(doclistfor(item));
 		return [latest == "" ? 1 : 0, latest == "" ? 0 : -Date.parse(latest), -item.getId()];
 	});
+}
+
+function setDateCutoff(cutoff) {
+	DATE_CUTOFF = cutoff || "";
+	redisplay();
+}
+
+// Projects with no dated documents can't be shown to be recent, so they
+// are hidden whenever a cutoff is set
+function matchesDateCutoff(doclist) {
+	if(DATE_CUTOFF == "") { return true; }
+	const latest = getLatestDocDate(doclist);
+	return latest != "" && latest >= DATE_CUTOFF;
 }
 
 function getStudyItem() {
@@ -454,6 +471,11 @@ function getUiControlTable() {
 		<td colspan="2">${tagsel}</td>
 		</tr>
 		<tr>
+		<td>Latest Doc On/After</td>
+		<td><input type="date" value="${DATE_CUTOFF}" onchange="javascript:setDateCutoff(this.value)"/></td>
+		<td><a href="javascript:setDateCutoff('')">clear</a></td>
+		</tr>
+		<tr>
 		<td>Sort By</td>
 		<td colspan="2">${sortsel}</td>
 		</tr>
@@ -473,6 +495,7 @@ function getSelectedProjects(docmap) {
 	return W.getItemList(MAIN_TABLE)
 		.filter(item => towntrg == -1 || item.getTownId() == towntrg)
 		.filter(item => matchesTagFilter(item, tagtrg))
+		.filter(item => matchesDateCutoff(docmap.get(item.getId()) || []))
 		.sort(getSortComparator(sortkey, docmap));
 }
 
