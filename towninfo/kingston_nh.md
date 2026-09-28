@@ -27,6 +27,10 @@ content-analyzed — blocked on the decode-to-disk step.**
   richer and easier to scrape than visiting each meeting detail page
   individually. Also `/calendar?boards-commissions=736` (a calendar view
   scoped to Planning Board via board id `736`), not fully explored.
+- ⚠️ `/meetings/recent` only lists **past** meetings. Agendas for upcoming
+  meetings are posted ahead of time on the upcoming meeting's detail page -
+  the `/planning-board` hub links the next few (e.g. `...-meeting-7` =
+  Oct 6 2026, agenda `/media/21666` posted by Sep 27). Check both.
 - Files linked as `/media/{numericId}` — short but not sequential/
   guessable per meeting; must be scraped from a listing page.
 - **Confirmed working** (per PATTERNS.md hotlink pattern): in-page

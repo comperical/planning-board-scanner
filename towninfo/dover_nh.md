@@ -1,6 +1,8 @@
 # Dover, NH — Planning Board Web Access
 
 > **Update 2026-09-21:** Also scan the **Planning Technical Review Committee** rows (same Treeno table) - their Materials and per-site files (e.g. `SITE-2026-0014`) are the earliest site-plan signal. Tab grids render cumulatively (old tab's rows stay in the DOM); clicking a file opens the TempFiles URL in tab 1 - read it with `tab-list`, then `tab-close 1`.
+>
+> **Update 2026-09-27:** A third **"Meeting Minutes"** tab appears once minutes are posted (PB minutes ~3 weeks after the meeting; TRC per-site review minutes show up there too). Download flow that keeps clean names: `FetchUrl target=<TempFiles URL>` (no `dest=`, lands in `working/TARGET.pdf`), then `ClaimDownload file=working/TARGET.pdf dest=working/dover_nh name=<clean name>`. Temp filenames can carry a `-2` suffix or a space instead of `_` - always rename.
 
 Investigated: 2026-09-12
 

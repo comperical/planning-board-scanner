@@ -50,7 +50,8 @@ const TOWN_SEL_KEY = "TownSelKey";
 const TAG_SEL_KEY = "TagSelKey";
 const SORT_SEL_KEY = "SortSelKey";
 
-GENERIC_OPT_SELECT_MAP.set(TOWN_SEL_KEY, -1);
+// TESTING: default to Barnstead (town id 17) while building the history view; normally -1
+GENERIC_OPT_SELECT_MAP.set(TOWN_SEL_KEY, 17);
 GENERIC_OPT_SELECT_MAP.set(TAG_SEL_KEY, "any");
 GENERIC_OPT_SELECT_MAP.set(SORT_SEL_KEY, "latest_doc");
 
@@ -58,7 +59,8 @@ const SORT_OPTION_MAP = new Map([
 	["latest_doc", "Latest Document"],
 	["newest", "Newest Project"],
 	["town_name", "Town Name"],
-	["num_docs", "#Documents"]
+	["num_docs", "#Documents"],
+	["num_mentions", "#Mentions"]
 ]);
 
 
@@ -143,6 +145,12 @@ function getSortComparator(sortkey, docmap) {
 
 	if(sortkey == "num_docs") {
 		return U.proxySort(item => [-doclistfor(item).length, -item.getId()]);
+	}
+
+	// Mentions = distinct meeting dates; an agenda and minutes for the same
+	// meeting count once
+	if(sortkey == "num_mentions") {
+		return U.proxySort(item => [-new Set(doclistfor(item).map(doc => doc.getDocDate())).size, -item.getId()]);
 	}
 
 	// Default: latest_doc, most recent first; projects with no dated
@@ -460,8 +468,10 @@ function getUiControlTable() {
 						.useGenericUpdater()
 						.getHtmlString();
 
+	const towntrg = getSelectedTownId();
+
 	return `
-		<table class="basic-table" width="40%">
+		<table class="basic-table" width="50%">
 		<tr>
 		<td>Town</td>
 		<td colspan="2">${townsel}</td>
@@ -472,13 +482,18 @@ function getUiControlTable() {
 		</tr>
 		<tr>
 		<td>Latest Doc On/After</td>
-		<td><input type="date" value="${DATE_CUTOFF}" onchange="javascript:setDateCutoff(this.value)"/></td>
-		<td><a href="javascript:setDateCutoff('')">clear</a></td>
+		<td colspan="${DATE_CUTOFF == "" ? 2 : 1}"><input type="date" value="${DATE_CUTOFF}" onchange="javascript:setDateCutoff(this.value)"/></td>
+		${DATE_CUTOFF == "" ? "" : `<td><a href="javascript:setDateCutoff('')" title="Clear date filter"><i class="fa-solid fa-eraser"></i></a></td>`}
 		</tr>
 		<tr>
 		<td>Sort By</td>
 		<td colspan="2">${sortsel}</td>
 		</tr>
+		${towntrg == -1 ? "" : `
+		<tr>
+		<td>Meetings</td>
+		<td colspan="2">${HISTORY.getTownLegendHtml(towntrg)}</td>
+		</tr>`}
 		</table>
 	`;
 }
@@ -505,8 +520,11 @@ function getMainPageInfo() {
 	const docmap = getProjectDocMap();
 	const contactcountmap = getProjectContactCountMap();
 	const itemlist = getSelectedProjects(docmap);
+	const towndatemaps = HISTORY.getAllTownDateMaps();
 
 	var pageinfo = `<h3>PlanScan Projects</h3>
+
+		${HISTORY.getStyleHtml()}
 
 		${getUiControlTable()}
 
@@ -522,13 +540,11 @@ function getMainPageInfo() {
 
 		<table class="basic-table" width="95%">
 		<tr>
-		<th width="5%">ID</th>
 		<th width="12%">Town</th>
-		<th>Short Description</th>
+		<th>Basic Info</th>
 		<th width="18%">Tags</th>
-		<th width="6%">#Docs</th>
 		<th width="8%">#Contacts</th>
-		<th width="10%">Latest Doc</th>
+		<th width="14%">Mentioned On</th>
 		</tr>
 	`;
 
@@ -538,13 +554,11 @@ function getMainPageInfo() {
 
 		const rowstr = `
 			<tr class="editable" onclick="javascript:editStudyItem(${item.getId()})">
-			<td>${item.getId()}</td>
 			<td>${getTownName(item.getTownId())}</td>
 			<td class="left-align">${item.getShortDesc() || "(no short_desc)"}</td>
 			<td class="left-align">${getTagList(item).join(", ")}</td>
-			<td>${doclist.length}</td>
 			<td>${contactcountmap.get(item.getId()) || ""}</td>
-			<td>${getLatestDocDate(doclist) || "?"}</td>
+			<td>${HISTORY.getProjectStripHtml(doclist, towndatemaps.get(item.getTownId()) || new Map())}</td>
 			</tr>
 		`;
 		pageinfo += rowstr;

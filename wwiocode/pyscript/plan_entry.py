@@ -576,11 +576,16 @@ class NextToScanTool:
 
     Args: [limit=<n>]  (default 10; 0 = all towns)
           [due_days=<n>]  (only towns whose last good scan is at least n days old; default 0 = no filter)
+          [daily=true]  (the daily-update quota: the ceil(N/7) stalest towns, N = towns
+                      in the DB, skipping any with a good scan in the last 24h - so
+                      fewer only when nearly every town was scanned that recently.
+                      Overrides limit= and due_days=)
     """
 
     def run_op(self, argmap):
         limit = argmap.getInt("limit", 10)
         due_days = argmap.getInt("due_days", 0)
+        daily = argmap.getBit("daily", False)
 
         conn = DB.get_connection()
         rows = conn.execute(
@@ -595,6 +600,10 @@ class NextToScanTool:
             """
         ).fetchall()
         knownset = {slug for slug, _, _, _ in rows}
+        if daily:
+            limit = -(-len(rows) // 7)
+            due_days = 0
+            rows = [r for r in rows if r[3] is None or r[3] >= 1]
         # 0.25 day of slack, so a town scanned at 10am a week ago still counts as
         # due at 7am today (daily runs won't start at the same time every day).
         if due_days > 0:
@@ -614,6 +623,8 @@ class NextToScanTool:
 
         shown = rows if limit == 0 else rows[:limit]
         duenote = f", due = last good scan >= {due_days}d ago" if due_days > 0 else ""
+        if daily:
+            duenote = f", daily quota = ceil({len(knownset)}/7) = {limit}, skipping towns scanned in the last 24h"
         print(f"Towns by scan staleness ({len(shown)} of {len(rows)}{duenote}):")
         for slug, lastscan, scancount, daysago in shown:
             if lastscan is None:

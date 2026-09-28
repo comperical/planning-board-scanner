@@ -117,8 +117,9 @@ later wants to know when a town was last checked.
 To pick which town to re-scan next, run
 `wwiocode/pyscript/plan_entry.py NextToScan` (`limit=0` for all towns) -
 never-scanned towns first, then oldest last good scan pass; add
-`due_days=7` to list only towns that are due. The routine morning run
-over all due towns is the `daily-update` skill. It's the scan-side
+`due_days=7` to list only towns that are due, or `daily=true` for the
+daily quota (~1/7 of all towns, skipping any scanned in the last 24h). The
+routine morning run is the `daily-update` skill. It's the scan-side
 counterpart of `NextToAnalyze`; `towns.wisp` shows the same thing as its
 "Last Scanned" column / "Next To Scan" sort.
 

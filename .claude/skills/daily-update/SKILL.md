@@ -1,6 +1,6 @@
 ---
 name: daily-update
-description: The morning protocol that brings every town up to date - re-scan each town whose last good scan is 7+ days old, analyze every newly found document, find contacts for projects that have none, and finish with a DailyReport summary. Use when asked to "run the daily update", "do the morning run", "bring the towns up to date", or /daily-update.
+description: The morning protocol that brings every town up to date - re-scan about 1/7 of the towns (the stalest first, skipping any scanned in the last 24h), analyze every newly found document, find contacts for projects that have none, and finish with a DailyReport summary. Use when asked to "run the daily update", "do the morning run", "bring the towns up to date", or /daily-update.
 ---
 
 # Daily Update
@@ -34,17 +34,18 @@ The browser session is opened lazily in step 1 only when a town needs it
 (`playwright-cli -s=planscan list` first; open headed for Cloudflare towns -
 kingston, madbury, brentwood, rochester - see their towninfo files).
 
-## 1. Scan every town that's due
+## 1. Scan today's share of towns
 
 ```bash
-wwiocode/pyscript/plan_entry.py NextToScan due_days=7 limit=25
+wwiocode/pyscript/plan_entry.py NextToScan daily=true
 ```
 
-`due_days=7` returns only towns whose last *good* scan is at least 7 days
-old (never-scanned towns first, then oldest). `limit=25` is the daily cap:
-steady state is ~10 towns/day (68 towns / 7 days), so 25 absorbs a missed
-day or two and still clears the backlog. If more than 25 are due, the rest
-come up tomorrow, oldest first - don't raise the cap mid-run.
+`daily=true` returns the day's quota: about 1/7 of the towns in the DB
+(ceil(N/7), e.g. 10 of 68), never-scanned towns first, then oldest last
+good scan. Towns with a good scan in the last 24 hours are skipped, so the
+list is only shorter than the quota when nearly every town was scanned
+that recently. Scan exactly the towns it lists - don't add more or stop
+short mid-run.
 
 Also note any "towninfo write-up(s) with no town row" it lists - those are
 new towns that have never been scanned; include them.
