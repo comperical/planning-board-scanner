@@ -62,8 +62,8 @@ wwiocode/pyscript/plan_entry.py FindContact q=lavelle                           
 wwiocode/pyscript/plan_entry.py FindContact "name=Ryan Lavelle" "company=Lavelle Associates"   # fuzzy duplicate check
 ```
 
-`ShowContactForTown town=<slug>` also lists contacts already used in that
-town. If a match exists, reuse it with `LinkContact` - don't create a
+`FindContact town=<slug>` lists contacts already used in that town (add
+`q=` to narrow). If a match exists, reuse it with `LinkContact` - don't create a
 duplicate. If the firm exists but the named person doesn't, create a new
 row for the person with the same company/phone/web site (that's the
 existing convention - see the several Jones & Beach rows).

@@ -30,12 +30,12 @@ allowlist match and forces a new permission prompt:
 ```bash
 # Don't:
 playwright-cli -s=planscan goto https://example.town.gov | tail -30
-wwiocode/pyscript/plan_entry.py PdfInfo pdf=working/TARGET.pdf 2>&1 | tail -3 && cat working/OUTPUT.txt
+wwiocode/pyscript/plan_entry.py DocDetail pdf=working/TARGET.pdf 2>&1 | tail -3 && cat working/OUTPUT.txt
 mkdir -p working/example_town && wwiocode/pyscript/plan_entry.py FetchUrl ...
 
 # Do: one bare command per call, full output goes to context automatically
 playwright-cli -s=planscan goto https://example.town.gov
-wwiocode/pyscript/plan_entry.py PdfInfo pdf=working/TARGET.pdf
+wwiocode/pyscript/plan_entry.py DocDetail pdf=working/TARGET.pdf
 ```
 
 Other consequences:
@@ -172,10 +172,10 @@ wwiocode/pyscript/plan_entry.py <ToolName> [key=value ...]
 (this exact relative-from-project-root invocation is pre-approved in
 `.claude/settings.local.json` - no permission prompt).
 
-The PDF analysis tools' output goes to a single hardcoded location inside
+The document tools' output goes to a single hardcoded location inside
 `working/` (no output path to inject):
 
-- Output: `working/OUTPUT.txt` for text/JSON-producing tools (each run
+- Output: `working/OUTPUT.txt` for `DocDetail`'s full page text (each run
   overwrites it - copy it elsewhere first if you need to keep more than one
   result around).
 - Output: `working/OUTPUT_PAGES/` for the page-render tool (one PNG per
@@ -195,11 +195,9 @@ Tools:
 |---|---|
 | `FetchUrl` | Downloads `target=<url>` via Python `requests` with a normal desktop User-Agent - a `curl` replacement that needs no permission prompt. With no `dest=`, writes straight to `working/TARGET.pdf` (overwriting it) - pass `pdf=working/TARGET.pdf` to the tools below. With `dest=working/<dir>` (must already exist, under `working/`), saves there instead under the file's original name (from the response's `Content-Disposition` header, falling back to the URL's last path segment) - handy for building up a `working/<town>/` archive directly. |
 | `ClaimDownload` | For sites that block `FetchUrl` (Cloudflare "Just a moment..." 403 on every non-browser request - kingston, madbury, brentwood): trigger a native download in the headed `planscan` session (`eval` a click on an `<a download>` for the file's href - see towninfo/PATTERNS.md), then `file=working/playwright_output/<f> dest=working/<town> [name=<new name>]` checks it's a real PDF/.docx and moves it into place for `IngestPdfTool`. |
-| `PdfExtractText` | Full text extraction (OCR fallback per scanned page). `pdf=working/<path>.pdf` |
-| `PdfInfo` | JSON: metadata, page count, file size, per-page text-length/scanned flag. `pdf=working/<path>.pdf` |
-| `PdfKeywordScan` | JSON: page/snippet hits for development-project terms (site plan, subdivision, residential, commercial, variance, ...). `pdf=working/<path>.pdf`, override keywords with `keywords=a,b,c` |
+| `DocDetail` | Page count, keyword hits (development terms - site plan, subdivision, residential, commercial, variance, ...) and full page text to `working/OUTPUT.txt`. From the DB for an ingested file; for one not ingested yet (e.g. `working/TARGET.pdf`) it reads the file live - page/scanned-page counts, a keyword scan (`keywords=a,b,c` to override), text with OCR fallback - and records nothing. `pdf=working/<path>.pdf\|.docx` |
 | `PdfRenderPages` | Renders pages to PNG via PyMuPDF (no poppler needed) - useful for large scanned "materials packet" PDFs. `pdf=working/<path>.pdf`. Caps at 30 pages by default; pass `pages=1-6,10` to target specific pages or go further |
-| `IngestPdfTool` | The single-call equivalent of `PdfInfo` + `PdfKeywordScan` + full text extraction, but writes straight into the SQLite DB (see `plan_db.py`) instead of `working/OUTPUT.txt` - the usual way to register a file found during a scan pass. Also accepts `.docx`. `pdf=working/<path>.pdf\|.docx` `[source_url=...]` `[date=YYYY-MM-DD]` `[scan_id=<id>]` - see "Logging a scan pass" above for `scan_id=` |
+| `IngestPdfTool` | Records the file in the SQLite DB (see `plan_db.py`): page stats, keyword hits and full page text - the usual way to register a file found during a scan pass. Also accepts `.docx`. `pdf=working/<path>.pdf\|.docx` `[source_url=...]` `[date=YYYY-MM-DD]` `[scan_id=<id>]` - see "Logging a scan pass" above for `scan_id=` |
 
 Example:
 
@@ -207,13 +205,13 @@ Each of these is its own separate, bare tool call - not chained:
 
 ```bash
 wwiocode/pyscript/plan_entry.py FetchUrl target=https://example.town.gov/agendas/2026.09.22_PlanningBoard.Materials.pdf
-wwiocode/pyscript/plan_entry.py PdfKeywordScan pdf=working/TARGET.pdf
-# then Read working/OUTPUT.txt with the Read tool (not cat)
+wwiocode/pyscript/plan_entry.py DocDetail pdf=working/TARGET.pdf
+# keyword hits print directly; Read working/OUTPUT.txt for the full text (not cat)
 wwiocode/pyscript/plan_entry.py PdfRenderPages pdf=working/TARGET.pdf pages=1-3
 # then Read working/OUTPUT_PAGES/page_001.png etc.
 
 # or analyze an already-downloaded file directly, no copy step:
-wwiocode/pyscript/plan_entry.py PdfInfo pdf=working/dover_nh/2026.09.22_PlanningBoard.Materials.pdf
+wwiocode/pyscript/plan_entry.py DocDetail pdf=working/dover_nh/2026.09.22_PlanningBoard.Materials.pdf
 ```
 
 For a large "materials"/packet-style PDF (scanned drawings, application

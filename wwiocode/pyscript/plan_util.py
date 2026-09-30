@@ -1,13 +1,7 @@
 
-import os
 import re
-import sys
-import json
 import urllib.parse
 
-sys.path.append("/opt/userdata/busicode/clientscript")
-
-import client_util as CSUTIL
 import docx as docxlib  # python-docx
 import fitz  # PyMuPDF
 import requests
@@ -16,9 +10,6 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 WORK_DIR = PROJECT_ROOT / "working"
-
-FORMAT_DOC_DIR = WORK_DIR / "formatted"
-TEXT_DIR = WORK_DIR / "text"
 
 
 # ---------------------------------------------------------------------------
@@ -103,52 +94,6 @@ def get_output_pages_dir():
     return OUTPUT_PAGES_DIR
 
 
-def load_doc_info():
-
-    def probe():
-        for basedir, _, fnames in os.walk(WORK_DIR):
-            for f in fnames:
-                if f == "document_info.json":
-                    yield Path(basedir) / f
-
-    probelist = list(probe())
-    assert len(probelist) == 1, f"Expected exactly 1 document_info file"
-
-    with open(probelist[0]) as fh:
-        return json.load(fh)
-
-
-def insert_doc_info():
-
-    docinfo = load_doc_info()
-
-    CSUTIL.direct_init_db("dburfoot", "planscan")
-
-    idgen = CSUTIL.gen_valid_assign_id("doc_info")
-
-    def gen_records():
-        for entry in docinfo:
-            filename = entry["filename"]
-            textpath = TEXT_DIR / (Path(filename).stem + ".txt")
-
-            extracted_text = ""
-            if textpath.exists():
-                with open(textpath, encoding="utf-8") as fh:
-                    extracted_text = fh.read()
-
-            yield {
-                "id": next(idgen),
-                "doc_link": entry["url"],
-                "location": str(FORMAT_DOC_DIR / filename),
-                "extracted_text": extracted_text,
-                "file_name": filename,
-                "day_code": entry["date"],
-            }
-
-    CSUTIL.bulk_insert("doc_info", list(gen_records()))
-
-
-
 def _is_docx(path):
     return Path(path).suffix.lower() == ".docx"
 
@@ -193,29 +138,11 @@ def _gen_page_text(pdfpath, *, ocr_fallback=True):
             yield pagetext
 
 
-def extract_text_info(mainpath):
-
-    mainpath = Path(mainpath)
-    textpath = TEXT_DIR / (mainpath.stem + ".txt")
-
-    if textpath.exists():
-        print(f"Text file {textpath} already exists, skipping")
-        return
-
-    TEXT_DIR.mkdir(parents=True, exist_ok=True)
-
-    fulltext = "\n\n".join(_gen_page_text(mainpath))
-
-    with open(textpath, "w", encoding="utf-8") as fh:
-        fh.write(fulltext)
-
-    print(f"Extracted text for {mainpath} -> {textpath}")
-
-
 # ---------------------------------------------------------------------------
-# Single-file PDF analysis tools. Each one reads a caller-supplied, validated
-# pdf= path (see resolve_input_pdf) and writes to the hardcoded OUTPUT_PATH
-# (or OUTPUT_PAGES_DIR) - see plan_entry.py.
+# Single-file document functions. Each reads a caller-supplied, validated
+# pdf= path (see resolve_input_pdf); they return data for the caller
+# (plan_entry.py records it in the DB or prints it), except
+# render_pdf_pages, which writes PNGs to the hardcoded OUTPUT_PAGES_DIR.
 # ---------------------------------------------------------------------------
 
 # Terms relevant to spotting residential/commercial development projects in
@@ -329,26 +256,11 @@ def claim_download(file_arg, dest_arg, name=""):
     return outpath.relative_to(PROJECT_ROOT)
 
 
-def extract_pdf_text(pdf_arg):
-    """Extract the full text of the given PDF (with OCR fallback per page) to OUTPUT_PATH."""
-
-    inpath = resolve_input_pdf(pdf_arg)
-    outpath = get_output_path()
-
-    fulltext = "\n\n".join(_gen_page_text(inpath))
-
-    with open(outpath, "w", encoding="utf-8") as fh:
-        fh.write(fulltext)
-
-    print(f"Extracted text for {inpath} -> {outpath} ({len(fulltext)} chars)")
-
-
 def get_pdf_page_texts(pdf_arg):
     """Return a list of the given PDF's page texts (OCR fallback per scanned
-    page), 1-indexed by position - the per-page counterpart to
-    extract_pdf_text's single joined blob. Used to populate the doc_pages
-    table (see plan_db.record_document_text) rather than write to
-    OUTPUT_PATH."""
+    page), 1-indexed by position. Used to populate the doc_pages table (see
+    plan_db.record_document_text), and by DocDetail for a file that hasn't
+    been ingested yet."""
 
     inpath = resolve_input_pdf(pdf_arg)
     return list(_gen_page_text(inpath))
@@ -387,52 +299,44 @@ def _extract_docx_info(inpath):
 
 
 def extract_pdf_info(pdf_arg):
-    """Write a JSON summary of the given PDF/docx to OUTPUT_PATH: metadata,
-    page count/size, and per-page stats (dimensions, text length, whether OCR
+    """Return a summary dict of the given PDF/docx: metadata, page
+    count/size, and per-page stats (dimensions, text length, whether OCR
     would be needed). A .docx has no page geometry, so it's always reported
     as a single page - see _extract_docx_info."""
 
     inpath = resolve_input_pdf(pdf_arg)
-    outpath = get_output_path()
 
     if _is_docx(inpath):
-        info = _extract_docx_info(inpath)
-    else:
-        with fitz.open(inpath) as doc:
+        return _extract_docx_info(inpath)
 
-            def gen_pages():
-                for pagenum, page in enumerate(doc):
-                    pagetext = page.get_text().strip()
-                    yield {
-                        "page": pagenum + 1,
-                        "width": page.rect.width,
-                        "height": page.rect.height,
-                        "text_chars": len(pagetext),
-                        "has_selectable_text": bool(pagetext),
-                    }
+    with fitz.open(inpath) as doc:
+        pages = []
+        for pagenum, page in enumerate(doc):
+            pagetext = page.get_text().strip()
+            pages.append({
+                "page": pagenum + 1,
+                "width": page.rect.width,
+                "height": page.rect.height,
+                "text_chars": len(pagetext),
+                "has_selectable_text": bool(pagetext),
+            })
 
-            info = {
-                "source_path": str(inpath),
-                "file_size_bytes": inpath.stat().st_size,
-                "page_count": doc.page_count,
-                "metadata": dict(doc.metadata or {}),
-                "pages": list(gen_pages()),
-            }
-
-    with open(outpath, "w", encoding="utf-8") as fh:
-        json.dump(info, fh, indent=2)
-
-    print(f"Wrote PDF info for {inpath} -> {outpath} ({info['page_count']} pages)")
+        return {
+            "source_path": str(inpath),
+            "file_size_bytes": inpath.stat().st_size,
+            "page_count": doc.page_count,
+            "metadata": dict(doc.metadata or {}),
+            "pages": pages,
+        }
 
 
 def scan_pdf_keywords(keywords_str, pdf_arg, *, context_chars=80):
     """Scan the given PDF's text (page by page, no OCR - keyword scans are
-    meant to be fast) for the given comma-separated keywords, and write a
-    JSON list of hits (page, keyword, count, and a short surrounding
-    snippet) to OUTPUT_PATH."""
+    meant to be fast) for the given comma-separated keywords, and return a
+    dict whose "hits" list gives page, keyword, count and a short
+    surrounding snippet for each."""
 
     inpath = resolve_input_pdf(pdf_arg)
-    outpath = get_output_path()
 
     keywords = [kw.strip() for kw in keywords_str.split(",") if kw.strip()]
     assert keywords, "No keywords supplied"
@@ -459,18 +363,7 @@ def scan_pdf_keywords(keywords_str, pdf_arg, *, context_chars=80):
                 }
 
     hits = list(gen_hits())
-
-    result = {
-        "source_path": str(inpath),
-        "keywords": keywords,
-        "hit_count": len(hits),
-        "hits": hits,
-    }
-
-    with open(outpath, "w", encoding="utf-8") as fh:
-        json.dump(result, fh, indent=2)
-
-    print(f"Scanned {inpath} for {len(keywords)} keywords -> {outpath} ({len(hits)} hits)")
+    return {"source_path": str(inpath), "keywords": keywords, "hit_count": len(hits), "hits": hits}
 
 
 MAX_RENDER_PAGES_DEFAULT = 30

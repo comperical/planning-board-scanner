@@ -129,10 +129,9 @@ Playwright session to enumerate/navigate pages, then hand PDF URLs to plain
   documents, in addition to the hotlink issue), gilford (at least some
   documents). Content-Type
   `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
-  (or bare `application/msword`). This project's PDF toolchain
-  (`PdfExtractText`, `PdfKeywordScan`) can't process these directly — a
-  **`.docx` text-extraction tool is a standing `TODO.txt` item**, not yet
-  built. exeter also occasionally posts draft minutes as `.docx`.
+  (or bare `application/msword`). `IngestPdf` and `DocDetail` read
+  `.docx` directly (as a single page, no OCR); only `PdfRenderPages` is
+  PDF-only. exeter also occasionally posts draft minutes as `.docx`.
 - **Dual/legacy domains resolving to the same or a stale site**: bedford
   (`.gov`/`.org`, confirmed interchangeable), auburn (`.us`/`.gov`, *not*
   confirmed in sync), greenland (`.nh.gov` vs. legacy `-nh.com`), gilmanton
@@ -180,7 +179,7 @@ Playwright session to enumerate/navigate pages, then hand PDF URLs to plain
 - **Dominant case types** across all keyword scans: subdivision and site
   plan review are by far the most common (>70 combined hits across
   samples), then Conditional Use Permit, then condominium/lot-line-
-  adjustment/special-exception. The standard `PdfKeywordScan` keyword list
+  adjustment/special-exception. The standard keyword list (`IngestPdf`/`DocDetail`)
   is well-tuned to what's actually in these agendas.
 - **Richness varies enormously by town, independent of platform** — small
   file size does not mean low signal (laconia's 9.4KB agenda and

@@ -20,64 +20,19 @@ import ArgMap
 import CodeSetup as SETUP
 
 
-
-class ExtractDataTool:
-
-    def run_op(self, argmap):
-        
-        def gendata():
-
-            for basedir, _, fnames in os.walk(UTIL.FORMAT_DOC_DIR):
-
-                for f in fnames:
-                    print(f)
-                    yield UTIL.FORMAT_DOC_DIR / f
-
-
-        for formdoc in gendata():
-            UTIL.extract_text_info(formdoc)
-
-        #datalist = list(gendata())
-        #UTIL.extract_text_info(docpath)
-
-class ProcessDocTool:
-
-    def run_op(self, argmap):
-
-
-        docinfo = UTIL.load_doc_info()
-
-        #print(docinfo)
-
-        UTIL.insert_doc_info()
-
-
-class BasicTool:
-
-    def run_op(self, argmap):
-        print("Study basic!!!")
-
-        print(f"Work directory is {UTIL.WORK_DIR}")
-
-        assert os.path.exists(UTIL.WORK_DIR)
-
-
 # ---------------------------------------------------------------------------
-# Single-file PDF analysis tools.
+# File and document tools.
 #
-# Each tool takes the input PDF as pdf=<path>, checked - before any work
+# Each tool takes its input file as pdf=<path>, checked - before any work
 # happens - against two rules: it must start with "working/" and it must
-# already exist as a file. Output still goes to a hardcoded canonical
-# location inside working/, so there is no output path for a caller to
-# inject:
-#   - input  : pdf=working/<...>.pdf  (must start with "working/" and exist)
-#   - output : working/OUTPUT.txt     (text or JSON-as-text, depending on tool)
-#   - output : working/OUTPUT_PAGES/  (PdfRenderPages only, one PNG per page)
+# already exist as a file. Output goes to a hardcoded location inside
+# working/, so there is no output path for a caller to inject:
+#   - working/OUTPUT.txt     (DocDetail's full page text)
+#   - working/OUTPUT_PAGES/  (PdfRenderPages, one PNG per page)
 #
 # Example:
 #   plan_entry.py FetchUrl target=https://example.town.gov/2026.09.22_Materials.pdf
-#   plan_entry.py PdfExtractText pdf=working/TARGET.pdf
-#   cat working/OUTPUT.txt
+#   plan_entry.py DocDetail pdf=working/TARGET.pdf
 # ---------------------------------------------------------------------------
 
 class ListDirTool:
@@ -148,49 +103,6 @@ class ClaimDownloadTool:
         print(f"Moved {filearg} -> pdf={outpath}")
 
 
-class PdfExtractTextTool:
-    """Extract the full text of pdf= (OCR fallback per scanned page; a
-    .docx is read directly, no OCR involved) to working/OUTPUT.txt.
-
-    Args: pdf=working/<path>.pdf|.docx
-    """
-
-    def run_op(self, argmap):
-        pdf = argmap.getStr("pdf", "")
-        UTIL.extract_pdf_text(pdf)
-
-
-class PdfInfoTool:
-    """Write a JSON summary of pdf= - metadata, page count, file size, and
-    per-page stats (dimensions, text length, whether it looks scanned) - to
-    working/OUTPUT.txt. A .docx has no page geometry, so it's always
-    reported as a single page.
-
-    Args: pdf=working/<path>.pdf|.docx
-    """
-
-    def run_op(self, argmap):
-        pdf = argmap.getStr("pdf", "")
-        UTIL.extract_pdf_info(pdf)
-
-
-class PdfKeywordScanTool:
-    """Scan pdf='s text for development-project keywords (site plan,
-    subdivision, residential, commercial, ...) and write JSON hits with page
-    numbers and snippets to working/OUTPUT.txt. Pass keywords=...
-    (comma-separated) to override the default list. A .docx has no real
-    pages, so any hits are reported as page 1.
-
-    Args: pdf=working/<path>.pdf|.docx  [keywords=a,b,c]
-    """
-
-    def run_op(self, argmap):
-        pdf = argmap.getStr("pdf", "")
-        keywords = argmap.getStr("keywords", UTIL.DEFAULT_SCAN_KEYWORDS)
-
-        UTIL.scan_pdf_keywords(keywords, pdf)
-
-
 class PdfRenderPagesTool:
     """Render pages of pdf= to PNG images (one file per page) inside
     working/OUTPUT_PAGES/. With no pages= given, renders the whole document
@@ -210,12 +122,9 @@ class PdfRenderPagesTool:
 
 
 class IngestPdfTool:
-    """Run PdfInfo + PdfKeywordScan (+ full text extraction, by default) on
-    pdf= and record it all straight into the SQLite database (see
-    plan_db.py) - the single-call equivalent of PdfInfoTool +
-    PdfKeywordScanTool + UpdateDbTool, for wiring a scan's downloaded
-    PDFs/docx into the DB without leaving the plan_entry.py allowlist.
-    Upserts by file_path (creating the town row as a side effect); safe to
+    """Record pdf= in the SQLite database (see plan_db.py): file/page
+    stats, development-keyword hits and (by default) the full page text -
+    the usual way to register a file found during a scan pass. Upserts by file_path (creating the town row as a side effect); safe to
     re-run - a re-scan replaces that document's previously recorded
     pages/keyword hits/text rather than duplicating them.
 
@@ -225,8 +134,8 @@ class IngestPdfTool:
 
     Full-page text extraction (OCR fallback per scanned PDF page, via
     plan_util.get_pdf_page_texts) is the slow step for a large scanned
-    packet - pass with_text=false to skip it (PdfInfo/PdfKeywordScan still
-    run) and extract text separately/later if needed.
+    packet - pass with_text=false to skip it (stats and keyword hits are
+    still recorded) and re-run later with the text if needed.
 
     Pass scan_id=<id> (from StartScanLog) if this file was just discovered
     during a scan pass - it's recorded as documents.first_scan_id, and only
@@ -250,12 +159,10 @@ class IngestPdfTool:
         if scan_id != -1:
             DB.upsert_document(conn, pdf, source_url=source_url, first_scan_id=scan_id)
 
-        UTIL.extract_pdf_info(pdf)
-        info = DB.load_json_output()
+        info = UTIL.extract_pdf_info(pdf)
         DB.record_pdf_info(conn, pdf, info, source_url=source_url)
 
-        UTIL.scan_pdf_keywords(keywords, pdf)
-        scan = DB.load_json_output()
+        scan = UTIL.scan_pdf_keywords(keywords, pdf)
         DB.record_keyword_scan(conn, pdf, scan, source_url=source_url)
 
         if with_text:
@@ -401,8 +308,7 @@ def _print_contacts(rows, *, reason=False, projects=False):
     project ids (projects=True)."""
 
     for cid, name, company, phone, email, web_site, extra in rows:
-        label = " - ".join(x for x in (name, company) if x) or "(no name)"
-        print(f"  #{cid:<4} {label}")
+        print(f"  #{cid:<4} {DB.contact_label(name, company)}")
         tail = ""
         if reason:
             tail = f"  [{extra}]"
@@ -412,25 +318,34 @@ def _print_contacts(rows, *, reason=False, projects=False):
 
 
 class FindContactTool:
-    """Look up existing contacts before creating one. q= does a
-    case-insensitive substring search over name, company, phone, email and
-    web site, listing each hit's linked projects. name=/company= instead
-    run the same fuzzy duplicate check CreateContact does (shared
-    distinctive company word or surname).
+    """Look up existing contacts before creating one.
+      - q=<text>: case-insensitive substring search over name, company,
+        phone, email and web site.
+      - town=<slug>: contacts linked to at least one project in that town
+        (combine with q= to narrow).
+      - name=/company=: the fuzzy duplicate check CreateContact runs
+        (shared distinctive company word or surname).
+    q=/town= hits list each contact's linked projects.
 
-    Args: q=<text> | [name=...] [company=...]
+    Args: [q=<text>] [town=<slug>] | [name=...] [company=...]
     """
 
     def run_op(self, argmap):
         text = argmap.getStr("q", "")
+        town = argmap.getStr("town", "")
         name = argmap.getStr("name", "")
         company = argmap.getStr("company", "")
-        assert bool(text) != bool(name or company), "Pass q=<text>, or name=/company= (not both)"
+        assert bool(text or town) != bool(name or company), \
+            "Pass q=/town=, or name=/company= (not both)"
 
         conn = DB.get_connection()
-        if text:
-            rows = DB.search_contacts(conn, text)
-            print(f"{len(rows)} contact(s) matching {text!r}:")
+        if text or town:
+            if town:
+                assert conn.execute("SELECT 1 FROM town WHERE slug = ?", (town,)).fetchone(), \
+                    f"No town with slug {town}"
+            rows = DB.search_contacts(conn, text, town)
+            scope = " and ".join(x for x in (f"matching {text!r}" if text else "", f"used in {town}" if town else "") if x)
+            print(f"{len(rows)} contact(s) {scope}:")
             _print_contacts(rows, projects=True)
         else:
             rows = DB.find_similar_contacts(conn, name, company)
@@ -476,8 +391,7 @@ class CreateContactTool:
                 sys.exit(1)
 
         contact_id = DB.create_contact(conn, name, phone, email, web_site, company=company)
-        label = " - ".join(x for x in (name, company) if x) or "(no name)"
-        print(f"Created contact {contact_id} ({label}). Link it with "
+        print(f"Created contact {contact_id} ({DB.contact_label(name, company)}). Link it with "
               f"LinkContact project_id=<id> contact_ids={contact_id}")
 
 
@@ -491,18 +405,11 @@ class LinkContactTool:
 
     def run_op(self, argmap):
         project_id = argmap.getInt("project_id", -1)
-        idstr = argmap.getStr("contact_ids", "")
-
-        assert project_id != -1, "project_id=<id> is required"
-        contact_ids = [int(s.strip()) for s in idstr.split(",") if s.strip()]
-        assert contact_ids, "contact_ids=<id>[,<id>,...] is required"
+        contact_ids = DB.parse_ids(argmap.getStr("contact_ids", ""), "contact_ids")
 
         conn = DB.get_connection()
-        assert conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone(), \
-            f"No project with id {project_id}"
-        missing = [cid for cid in contact_ids
-                   if not conn.execute("SELECT 1 FROM contact_info WHERE id = ?", (cid,)).fetchone()]
-        assert not missing, f"No contact(s) with id {missing}"
+        DB.require_projects(conn, [project_id])
+        DB.require_contacts(conn, contact_ids)
 
         for contact_id in contact_ids:
             DB.link_contact_project(conn, contact_id, project_id)
@@ -518,12 +425,10 @@ class UnlinkContactTool:
 
     def run_op(self, argmap):
         project_id = argmap.getInt("project_id", -1)
-        idstr = argmap.getStr("contact_ids", "")
-        assert project_id != -1, "project_id=<id> is required"
-        contact_ids = [int(x.strip()) for x in idstr.split(",") if x.strip()]
-        assert contact_ids, "contact_ids=<id>[,<id>,...] is required"
+        contact_ids = DB.parse_ids(argmap.getStr("contact_ids", ""), "contact_ids")
 
         conn = DB.get_connection()
+        DB.require_projects(conn, [project_id])
         for contact_id in contact_ids:
             removed = DB.unlink_contact_project(conn, contact_id, project_id)
             print(f"{'Unlinked' if removed else 'No link between'} project {project_id} and contact {contact_id}")
@@ -570,8 +475,7 @@ class BatchContactOpsTool:
     """
 
     def run_op(self, argmap):
-        assert DB.CONTACT_OPS_PATH.exists(), f"Write the ops list to {DB.CONTACT_OPS_PATH} first"
-        ops = DB.load_json_output(DB.CONTACT_OPS_PATH)
+        ops = DB.read_input(DB.CONTACT_OPS_PATH, as_json=True)
         conn = DB.get_connection()
         try:
             results = DB.apply_contact_ops(conn, ops)
@@ -581,51 +485,6 @@ class BatchContactOpsTool:
         for line in results:
             print(line)
         print(f"Applied {len(results)} op(s) from {DB.CONTACT_OPS_PATH}")
-
-
-class ShowContactForTownTool:
-    """List every contact linked (via contact_project) to at least one
-    project in town_id=, with the ids of those projects - so an existing
-    contact can be reused with LinkContact instead of creating a duplicate.
-    Contacts not yet linked to any project don't appear. Identify the town
-    by town= (slug) or town_id= - exactly one of the two.
-
-    Args: town=<slug> | town_id=<id>
-    """
-
-    def run_op(self, argmap):
-        town = argmap.getStr("town", "")
-        town_id = argmap.getInt("town_id", -1)
-        assert bool(town) != (town_id != -1), "Pass exactly one of town=<slug> or town_id=<id>"
-
-        conn = DB.get_connection()
-        if town:
-            townrow = conn.execute("SELECT id, slug FROM town WHERE slug = ?", (town,)).fetchone()
-            assert townrow, f"No town with slug {town}"
-        else:
-            townrow = conn.execute("SELECT id, slug FROM town WHERE id = ?", (town_id,)).fetchone()
-            assert townrow, f"No town with id {town_id}"
-        town_id, slug = townrow
-
-        rows = conn.execute(
-            """
-            SELECT c.id, c.name, c.company, c.phone, c.email, c.web_site,
-                   GROUP_CONCAT(p.id, ',')
-            FROM contact_info c
-            JOIN contact_project cp ON cp.contact_id = c.id
-            JOIN projects p ON p.id = cp.project_id
-            WHERE p.town_id = ?
-            GROUP BY c.id
-            ORDER BY c.company, c.name, c.id
-            """,
-            (town_id,),
-        ).fetchall()
-
-        print(f"{len(rows)} contact(s) for town {town_id} ({slug}):")
-        for contact_id, name, company, phone, email, web_site, projids in rows:
-            label = " - ".join(x for x in (name, company) if x) or "(no name)"
-            print(f"  #{contact_id:<4} {label}")
-            print(f"        phone={phone or '-'}  email={email or '-'}  web_site={web_site or '-'}  projects={projids}")
 
 
 class LogContactSearchTool:
@@ -651,13 +510,10 @@ class LogContactSearchTool:
         notes = argmap.getStr("notes", "")
 
         assert (project_id != -1) != bool(idstr), "Pass exactly one of project_id=<id> or project_ids=<ids>"
-        project_ids = [project_id] if project_id != -1 else \
-            [int(x.strip()) for x in idstr.split(",") if x.strip()]
+        project_ids = [project_id] if project_id != -1 else DB.parse_ids(idstr, "project_ids")
 
         conn = DB.get_connection()
-        missing = [pid for pid in project_ids
-                   if not conn.execute("SELECT 1 FROM projects WHERE id = ?", (pid,)).fetchone()]
-        assert not missing, f"No project(s) with id {missing} - nothing logged"
+        DB.require_projects(conn, project_ids)
         assert outcome in DB.CONTACT_SEARCH_OUTCOMES, \
             f"outcome must be one of {DB.CONTACT_SEARCH_OUTCOMES}, got {outcome!r}"
 
@@ -987,17 +843,23 @@ class DailyReportTool:
 
 
 class DocDetailTool:
-    """Print everything already known about pdf= - town/date/size/source,
-    keyword hits, and the full extracted text (written to
-    working/OUTPUT.txt, same convention as PdfExtractText, since it can be
-    long) - without re-running any PDF extraction. Meant to be the one call
-    an analysis pass needs after NextToAnalyze picks a document.
+    """Print what's known about pdf= - town/date/size/source and keyword
+    hits - and write its full page text to working/OUTPUT.txt (it can be
+    long; Read that file). The one call an analysis pass needs after
+    NextToAnalyze picks a document.
 
-    Args: pdf=working/<path>.pdf
+    For an ingested document everything comes from the DB (no PDF work).
+    For a file not ingested yet - e.g. working/TARGET.pdf fetched to check
+    whether it's worth keeping - it's read live instead (page stats, a
+    keyword scan, and text with OCR fallback) and nothing is recorded; run
+    IngestPdf to keep it.
+
+    Args: pdf=working/<path>.pdf|.docx  [keywords=a,b,c]  (live read only)
     """
 
     def run_op(self, argmap):
         pdf = argmap.getStr("pdf", "")
+        keywords = argmap.getStr("keywords", UTIL.DEFAULT_SCAN_KEYWORDS)
 
         conn = DB.get_connection()
         row = conn.execute(
@@ -1008,31 +870,37 @@ class DocDetailTool:
             """,
             (pdf,),
         ).fetchone()
-        assert row is not None, f"No documents row for {pdf} - run IngestPdf on it first"
-        document_id, doc_date, size, pages, source_url, slug = row
 
-        print(f"town={slug}  date={doc_date or '?'}  pages={pages}  size={size} bytes")
-        print(f"source_url={source_url or '?'}")
+        if row is not None:
+            document_id, doc_date, size, pages, source_url, slug = row
+            print(f"town={slug}  date={doc_date or '?'}  pages={pages}  size={size} bytes")
+            print(f"source_url={source_url or '?'}")
+            hits = conn.execute(
+                "SELECT page_number, keyword, count, snippet FROM keyword_hits "
+                "WHERE document_id = ? ORDER BY page_number", (document_id,),
+            ).fetchall()
+            page_texts = [(num, text or "") for num, text in conn.execute(
+                "SELECT page_number, page_text FROM doc_pages WHERE document_id = ? ORDER BY page_number",
+                (document_id,))]
+        else:
+            info = UTIL.extract_pdf_info(pdf)
+            scanned = sum(1 for pg in info["pages"] if not pg["has_selectable_text"])
+            print(f"NOT INGESTED - read live from the file (run IngestPdf pdf={pdf} to record it)")
+            print(f"pages={info['page_count']}  scanned_pages={scanned}  size={info['file_size_bytes']} bytes")
+            hits = [(h["page"], h["keyword"], h["count"], h["snippet"])
+                    for h in UTIL.scan_pdf_keywords(keywords, pdf)["hits"]]
+            page_texts = list(enumerate(UTIL.get_pdf_page_texts(pdf), 1))
 
-        hits = conn.execute(
-            "SELECT page_number, keyword, count, snippet FROM keyword_hits "
-            "WHERE document_id = ? ORDER BY page_number", (document_id,),
-        ).fetchall()
         print(f"\n{len(hits)} keyword hit(s):")
         for page_number, keyword, count, snippet in hits:
             print(f"  p{page_number}  {keyword} x{count}  {snippet}")
 
-        pages_text = conn.execute(
-            "SELECT page_number, page_text FROM doc_pages WHERE document_id = ? ORDER BY page_number",
-            (document_id,),
-        ).fetchall()
-
         outpath = UTIL.get_output_path()
         with open(outpath, "w", encoding="utf-8") as fh:
-            for page_number, page_text in pages_text:
-                fh.write(f"--- Page {page_number} ---\n{page_text or ''}\n\n")
+            for page_number, page_text in page_texts:
+                fh.write(f"--- Page {page_number} ---\n{page_text}\n\n")
 
-        print(f"\nFull text of {len(pages_text)} page(s) written to {outpath}")
+        print(f"\nFull text of {len(page_texts)} page(s) written to {outpath}")
 
 
 class DbStatusTool:
@@ -1105,7 +973,7 @@ class UpsertTool:
         table = argmap.getStr("table", "")
         assert table, "table=<table name> is required"
 
-        record = DB.load_json_output(DB.UPSERT_PATH)
+        record = DB.read_input(DB.UPSERT_PATH, as_json=True)
         conn = DB.get_connection()
         row_id, created = DB.upsert_row(conn, table, record)
 
@@ -1132,23 +1000,6 @@ class RunQueryTool:
         for row in rows:
             print("\t".join("" if v is None else str(v) for v in row))
         print(f"({len(rows)} row(s))")
-
-
-class UpdateDbTool:
-    """Load document registrations from the hardcoded JSON file at
-    working/DB_UPDATE.json into the SQLite database (see plan_db.py) -
-    a JSON list of {"file_path": "working/<town>/<file>.pdf",
-    "source_url": "..." (optional), "date": "YYYY-MM-DD" (optional)}
-    objects. Upserts by file_path (and creates each town's row as a side
-    effect); safe to re-run.
-
-    Args: (none - edit working/DB_UPDATE.json, then run this)
-    """
-
-    def run_op(self, argmap):
-        conn = DB.get_connection()
-        document_ids = DB.update_documents_from_json(conn)
-        print(f"Updated {len(document_ids)} document(s) from {DB.DB_UPDATE_PATH}")
 
 
 if __name__ == '__main__':

@@ -1,23 +1,16 @@
-"""SQLite storage for planning-board-scanner results.
-
-This is deliberately separate from plan_util.py (which does the PDF work
-itself, driven by plan_entry.py's tools). This module owns the database:
-schema, connection handling, and functions to record the JSON that
-PdfInfoTool / PdfKeywordScanTool write to working/OUTPUT.txt.
-
-Nothing here is wired into plan_entry.py yet - call these functions
-directly (e.g. from a one-off script or a Python REPL) for now:
-
-    import plan_db as DB
-    conn = DB.get_connection()
-    DB.record_pdf_info(conn, "working/dover_nh/2026.09.22.Materials.pdf",
-                        json.load(open("working/OUTPUT.txt")))
+"""SQLite storage for planning-board-scanner results - the schema,
+connection handling, and every read/write the plan_entry.py tools make
+(plan_util.py does the PDF/web work and never touches the DB).
 
 The database file lives at /opt/userdata/db4widget/dburfoot/PLANSCAN_DB.sqlite
 - outside the repo entirely, alongside this user's other db4widget SQLite
-databases (FINANCE_DB, LIFE_DB, etc). It holds *raw* scan output (one row
-per document, one row per keyword hit) so scans are queryable and
-de-duplicated - no manual curation step.
+databases (FINANCE_DB, LIFE_DB, etc). It holds both raw scan output
+(documents, pages, keyword hits, page text, scan/analysis logs) and the
+hand-curated layer built on it (projects, contacts and their links).
+
+Tools that take structured input read it from a fixed file in working/
+(QUERY.sql, UPSERT.json, CONTACT_OPS.json, project_edit/<id>.*) via
+read_input(), so no caller-supplied path can point outside working/.
 
 Schema policy (for compatibility with another system that consumes these
 DBs): every table's single primary key column must be named exactly "id"
@@ -39,11 +32,6 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 WORK_DIR = PROJECT_ROOT / "working"
 
 DB_PATH = Path("/opt/userdata/db4widget/dburfoot/PLANSCAN_DB.sqlite")
-
-# Hardcoded input for the UpdateDb tool (plan_entry.py) - a JSON list of
-# document registrations to load into the documents table. See
-# update_documents_from_json() for the expected shape.
-DB_UPDATE_PATH = WORK_DIR / "DB_UPDATE.json"
 
 # Hardcoded input for the RunQuery tool (plan_entry.py) - one SQL statement,
 # run against a read-only connection.
@@ -109,8 +97,8 @@ CREATE TABLE IF NOT EXISTS documents (
     source_url          TEXT,                  -- original download URL, if known
     file_size_bytes     INTEGER,
     page_count          INTEGER,
-    metadata_json       TEXT,                  -- PDF metadata dict (PdfInfo), as JSON text
-    info_scanned_at     TEXT,                  -- UTC timestamp of the last PdfInfo recording
+    metadata_json       TEXT,                  -- PDF metadata dict (from IngestPdf), as JSON text
+    info_scanned_at     TEXT,                  -- UTC timestamp of the last page-stats recording (IngestPdf)
     keywords_scanned_at TEXT,                  -- UTC timestamp of the last keyword-scan recording
     first_scan_id       INTEGER REFERENCES scan_log(id)  -- the scan_log pass that first discovered this file
 );
@@ -639,6 +627,42 @@ def link_project_document(conn, project_id, document_id, page_number=None):
     conn.commit()
 
 
+def parse_ids(idstr, argname="ids"):
+    """Parse a comma-separated id list like "12, 15,19" from a tool arg."""
+
+    try:
+        ids = [int(x) for x in (idstr or "").replace(" ", "").split(",") if x]
+    except ValueError:
+        raise AssertionError(f"{argname}= must be comma-separated integers, got {idstr!r}")
+    assert ids, f"{argname}=<id>[,<id>,...] is required"
+    return ids
+
+
+def _missing_ids(conn, table, ids):
+    return [i for i in ids if not isinstance(i, int)
+            or not conn.execute(f"SELECT 1 FROM {table} WHERE id = ?", (i,)).fetchone()]
+
+
+def require_projects(conn, ids):
+    """Assert every id in ids is an existing project."""
+
+    missing = _missing_ids(conn, "projects", ids)
+    assert not missing, f"No project(s) with id {missing} - nothing written"
+
+
+def require_contacts(conn, ids):
+    """Assert every id in ids is an existing contact."""
+
+    missing = _missing_ids(conn, "contact_info", ids)
+    assert not missing, f"No contact(s) with id {missing} - nothing written"
+
+
+def contact_label(name, company):
+    """Display label for a contact: "Jane Smith, PE - Acme Engineering"."""
+
+    return " - ".join(x for x in (name, company) if x) or "(no name)"
+
+
 def create_contact(conn, name="", phone="", email="", web_site="", company="", *, commit=True):
     """Create a new contact_info row and return its id. Like create_project,
     there's no upsert-by-key - each call makes a new row; callers should run
@@ -726,9 +750,10 @@ def find_similar_contacts(conn, name="", company="", *, exclude_id=None):
     return [m[1] for m in matches]
 
 
-def search_contacts(conn, text):
+def search_contacts(conn, text="", town=""):
     """contact_info rows where text appears (case-insensitive) in any of
-    name, company, phone, email or web_site, each with the ids of the
+    name, company, phone, email or web_site, and/or (town=<slug>) that are
+    linked to at least one project in that town - each with the ids of the
     projects it's linked to. Rows of (id, name, company, phone, email,
     web_site, project_ids_csv)."""
 
@@ -739,11 +764,16 @@ def search_contacts(conn, text):
                (SELECT GROUP_CONCAT(cp.project_id, ',') FROM contact_project cp
                 WHERE cp.contact_id = c.id)
         FROM contact_info c
-        WHERE c.name LIKE ? OR c.company LIKE ? OR c.phone LIKE ?
-           OR c.email LIKE ? OR c.web_site LIKE ?
+        WHERE (c.name LIKE ? OR c.company LIKE ? OR c.phone LIKE ?
+               OR c.email LIKE ? OR c.web_site LIKE ?)
+          AND (? = '' OR EXISTS (
+                SELECT 1 FROM contact_project cp
+                JOIN projects p ON p.id = cp.project_id
+                JOIN town t ON t.id = p.town_id
+                WHERE cp.contact_id = c.id AND t.slug = ?))
         ORDER BY c.company, c.name, c.id
         """,
-        (pattern,) * 5,
+        (pattern,) * 5 + (town, town),
     ).fetchall()
 
 
@@ -813,8 +843,7 @@ def log_contact_search(conn, project_id, outcome, notes="", *, commit=True):
 
     assert outcome in CONTACT_SEARCH_OUTCOMES, \
         f"outcome must be one of {CONTACT_SEARCH_OUTCOMES}, got {outcome!r}"
-    assert conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone(), \
-        f"No project with id {project_id}"
+    require_projects(conn, [project_id])
 
     cur = conn.execute(
         """
@@ -903,10 +932,6 @@ def apply_contact_ops(conn, ops):
         "link": {"op", "project_id", "contact_ids"},
         "log": {"op", "project_id", "project_ids", "outcome", "notes"},
     }
-    project_exists = lambda pid: conn.execute(
-        "SELECT 1 FROM projects WHERE id = ?", (pid,)).fetchone() is not None
-    contact_exists = lambda cid: conn.execute(
-        "SELECT 1 FROM contact_info WHERE id = ?", (cid,)).fetchone() is not None
 
     # --- validate everything first ---
     errors = []
@@ -932,17 +957,17 @@ def apply_contact_ops(conn, ops):
             if not op.get("force"):
                 similar = find_similar_contacts(conn, op.get("name", ""), op.get("company", ""))
                 if similar:
-                    label = " - ".join(x for x in (op.get("name"), op.get("company")) if x)
+                    label = contact_label(op.get("name"), op.get("company"))
                     lines = [f"#{i} (create {label!r}): possible existing contact(s) - reuse one "
                              f"with a link op, or add \"force\": true if it's really new:"]
                     for cid, cname, ccompany, cphone, _, _, reason in similar[:5]:
-                        lines.append(f"      #{cid} {' - '.join(x for x in (cname, ccompany) if x)} "
+                        lines.append(f"      #{cid} {contact_label(cname, ccompany)} "
                                      f"({cphone or 'no phone'}) [{reason}]")
                     errors.append("\n".join(lines))
 
         elif kind == "link":
             pid = op.get("project_id")
-            if not isinstance(pid, int) or not project_exists(pid):
+            if _missing_ids(conn, "projects", [pid]):
                 errors.append(f"#{i} (link): no project with id {pid!r}")
             cids = op.get("contact_ids")
             if not isinstance(cids, list) or not cids:
@@ -952,7 +977,7 @@ def apply_contact_ops(conn, ops):
                 if isinstance(cid, str):
                     if cid not in refs:
                         errors.append(f"#{i} (link): ref {cid!r} isn't created by an earlier op")
-                elif not isinstance(cid, int) or not contact_exists(cid):
+                elif _missing_ids(conn, "contact_info", [cid]):
                     errors.append(f"#{i} (link): no contact with id {cid!r}")
 
         else:  # log
@@ -964,7 +989,7 @@ def apply_contact_ops(conn, ops):
             if not isinstance(pids, list) or not pids:
                 errors.append(f"#{i} (log): project_id or project_ids is required")
             else:
-                bad = [pid for pid in pids if not isinstance(pid, int) or not project_exists(pid)]
+                bad = _missing_ids(conn, "projects", pids)
                 if bad:
                     errors.append(f"#{i} (log): no project(s) with id {bad}")
             if op.get("outcome") not in CONTACT_SEARCH_OUTCOMES:
@@ -984,7 +1009,7 @@ def apply_contact_ops(conn, ops):
                                      op.get("web_site", ""), company=op.get("company", ""), commit=False)
                 if op.get("ref"):
                     ref_ids[op["ref"]] = cid
-                label = " - ".join(x for x in (op.get("name"), op.get("company")) if x)
+                label = contact_label(op.get("name"), op.get("company"))
                 results.append(f"Created contact {cid} ({label})"
                                + (f" as ref {op['ref']!r}" if op.get("ref") else ""))
             elif kind == "link":
@@ -1117,8 +1142,7 @@ def run_query(path=QUERY_PATH, db_path=DB_PATH):
     (so it can't modify the DB - use the dedicated tools for writes) and
     return (column_names, rows)."""
 
-    sql = Path(path).read_text(encoding="utf-8").strip()
-    assert sql, f"{path} is empty"
+    sql = read_input(path)
 
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
@@ -1129,43 +1153,17 @@ def run_query(path=QUERY_PATH, db_path=DB_PATH):
         conn.close()
 
 
-def load_json_output(path=WORK_DIR / "OUTPUT.txt"):
-    """Convenience: load the JSON that PdfInfoTool/PdfKeywordScanTool most
-    recently wrote to working/OUTPUT.txt."""
+def read_input(path, *, as_json=False):
+    """Read one of the fixed working/ input files a tool consumes
+    (QUERY.sql, UPSERT.json, CONTACT_OPS.json), failing with a clear
+    "write it first" message if it's missing or empty. Returns the text, or
+    the parsed JSON when as_json."""
 
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-def update_documents_from_json(conn, path=DB_UPDATE_PATH):
-    """Register/update documents rows from a JSON file at path: a list of
-    objects, each {"file_path": "working/<town>/<file>.pdf", "source_url":
-    "..." (optional), "date": "YYYY-MM-DD" (optional)}. Returns the list of
-    document ids touched.
-
-    This only registers documents (and creates their town row as a side
-    effect) - it does not touch pages/keyword_hits. Re-running is safe:
-    entries are upserted by file_path, never duplicated."""
-
-    with open(path, encoding="utf-8") as fh:
-        entries = json.load(fh)
-
-    assert isinstance(entries, list), f"{path} must contain a JSON list of document objects"
-
-    document_ids = []
-    for entry in entries:
-        file_path = entry["file_path"]
-        document_ids.append(
-            upsert_document(
-                conn,
-                file_path,
-                source_url=entry.get("source_url"),
-                doc_date=entry.get("date"),
-            )
-        )
-
-    conn.commit()
-    return document_ids
+    path = Path(path)
+    assert path.exists(), f"Write {path.relative_to(PROJECT_ROOT)} first, then re-run"
+    text = path.read_text(encoding="utf-8").strip()
+    assert text, f"{path.relative_to(PROJECT_ROOT)} is empty"
+    return json.loads(text) if as_json else text
 
 
 if __name__ == "__main__":
