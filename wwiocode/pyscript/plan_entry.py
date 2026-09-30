@@ -3,6 +3,12 @@
 import os
 import re
 import sys
+import warnings
+
+# urllib3 2.x warns on every import that this Python's ssl module is
+# LibreSSL - two lines of noise on every tool call. Filtered by message so
+# urllib3 needn't be imported here first.
+warnings.filterwarnings("ignore", message=r"urllib3 v2\.0 only supports OpenSSL")
 
 import plan_db as DB
 import plan_util as UTIL
@@ -389,6 +395,49 @@ class LinkProjectTool:
         print(f"Linked project {project_id} <-> document {document_id} ({pdf}){pagesuffix}")
 
 
+def _print_contacts(rows, *, reason=False, projects=False):
+    """Print contact rows of (id, name, company, phone, email, web_site,
+    extra) - extra is a match reason (reason=True) or a CSV of linked
+    project ids (projects=True)."""
+
+    for cid, name, company, phone, email, web_site, extra in rows:
+        label = " - ".join(x for x in (name, company) if x) or "(no name)"
+        print(f"  #{cid:<4} {label}")
+        tail = ""
+        if reason:
+            tail = f"  [{extra}]"
+        elif projects:
+            tail = f"  projects={extra or '-'}"
+        print(f"        phone={phone or '-'}  email={email or '-'}  web_site={web_site or '-'}{tail}")
+
+
+class FindContactTool:
+    """Look up existing contacts before creating one. q= does a
+    case-insensitive substring search over name, company, phone, email and
+    web site, listing each hit's linked projects. name=/company= instead
+    run the same fuzzy duplicate check CreateContact does (shared
+    distinctive company word or surname).
+
+    Args: q=<text> | [name=...] [company=...]
+    """
+
+    def run_op(self, argmap):
+        text = argmap.getStr("q", "")
+        name = argmap.getStr("name", "")
+        company = argmap.getStr("company", "")
+        assert bool(text) != bool(name or company), "Pass q=<text>, or name=/company= (not both)"
+
+        conn = DB.get_connection()
+        if text:
+            rows = DB.search_contacts(conn, text)
+            print(f"{len(rows)} contact(s) matching {text!r}:")
+            _print_contacts(rows, projects=True)
+        else:
+            rows = DB.find_similar_contacts(conn, name, company)
+            print(f"{len(rows)} possibly-matching contact(s):")
+            _print_contacts(rows, reason=True)
+
+
 class CreateContactTool:
     """Create a new row in the contact_info table (a person or organization
     involved in projects - applicant, owner, engineer, etc) and print its
@@ -396,7 +445,13 @@ class CreateContactTool:
     with no known person, fill in company= and leave name= blank. All
     fields are optional; link it to projects with LinkContact.
 
-    Args: [name=...]  [company=...]  [phone=...]  [email=...]  [web_site=...]
+    Before creating, checks for existing contacts that look like the same
+    person or firm (a shared distinctive company word or surname - see
+    FindContact). If any turn up, nothing is created and they're listed:
+    reuse one with LinkContact, or re-run with force=true when it really is
+    new (e.g. a new person at a firm already on file).
+
+    Args: [name=...]  [company=...]  [phone=...]  [email=...]  [web_site=...]  [force=true]
     """
 
     def run_op(self, argmap):
@@ -405,11 +460,21 @@ class CreateContactTool:
         phone = argmap.getStr("phone", "")
         email = argmap.getStr("email", "")
         web_site = argmap.getStr("web_site", "")
+        force = argmap.getStr("force", "false").lower() == "true"
 
         assert name or company or phone or email or web_site, \
             "Pass at least one of name=, company=, phone=, email=, web_site="
 
         conn = DB.get_connection()
+        if not force:
+            similar = DB.find_similar_contacts(conn, name, company)
+            if similar:
+                print("NOT created - possible existing contact(s):")
+                _print_contacts(similar, reason=True)
+                print("Reuse one with LinkContact, or re-run with force=true if this is really new "
+                      "(e.g. a new person at an existing firm - copy its phone/web_site).")
+                sys.exit(1)
+
         contact_id = DB.create_contact(conn, name, phone, email, web_site, company=company)
         label = " - ".join(x for x in (name, company) if x) or "(no name)"
         print(f"Created contact {contact_id} ({label}). Link it with "
@@ -442,6 +507,80 @@ class LinkContactTool:
         for contact_id in contact_ids:
             DB.link_contact_project(conn, contact_id, project_id)
         print(f"Linked project {project_id} <-> contact(s) {contact_ids}")
+
+
+class UnlinkContactTool:
+    """Remove links between one project and one or more contacts - to undo
+    a wrong LinkContact. The contacts themselves are kept.
+
+    Args: project_id=<id>  contact_ids=<id>[,<id>,...]
+    """
+
+    def run_op(self, argmap):
+        project_id = argmap.getInt("project_id", -1)
+        idstr = argmap.getStr("contact_ids", "")
+        assert project_id != -1, "project_id=<id> is required"
+        contact_ids = [int(x.strip()) for x in idstr.split(",") if x.strip()]
+        assert contact_ids, "contact_ids=<id>[,<id>,...] is required"
+
+        conn = DB.get_connection()
+        for contact_id in contact_ids:
+            removed = DB.unlink_contact_project(conn, contact_id, project_id)
+            print(f"{'Unlinked' if removed else 'No link between'} project {project_id} and contact {contact_id}")
+
+
+class MergeContactsTool:
+    """Fold a duplicate contact into another: drop='s project links move to
+    keep=, any field blank on keep= is filled from drop=, then drop= is
+    deleted. To change a contact's fields directly, use Upsert
+    table=contact_info with an "id" key instead.
+
+    Args: keep=<id>  drop=<id>
+    """
+
+    def run_op(self, argmap):
+        keep_id = argmap.getInt("keep", -1)
+        drop_id = argmap.getInt("drop", -1)
+        assert keep_id != -1 and drop_id != -1, "keep=<id> and drop=<id> are required"
+
+        conn = DB.get_connection()
+        moved, filled = DB.merge_contacts(conn, keep_id, drop_id)
+        print(f"Merged contact {drop_id} into {keep_id}: moved {len(moved)} project link(s) {moved}"
+              + (f", filled {filled}" if filled else "") + f"; deleted {drop_id}")
+
+
+class BatchContactOpsTool:
+    """Apply many contact-search writes at once from the hardcoded JSON file
+    working/CONTACT_OPS.json - a list of create / link / log operations,
+    validated in full and then applied in one transaction (a bad batch
+    writes nothing). Creates get the same duplicate check as CreateContact
+    ("force": true to override) and can carry a "ref" that later link ops
+    use in place of the new id:
+
+        [
+          {"op": "create", "ref": "gpi", "name": "Pat McLaughlin, PE",
+           "company": "GPI / Greenman-Pedersen, Inc.", "web_site": "https://www.gpinet.com"},
+          {"op": "link", "project_id": 164, "contact_ids": ["gpi", 204]},
+          {"op": "log", "project_id": 164, "outcome": "found", "notes": "GPI (new), Volta Oil (reused)"},
+          {"op": "log", "project_ids": [502, 501, 486], "outcome": "skipped",
+           "notes": "non-construction"}
+        ]
+
+    Args: (none - write working/CONTACT_OPS.json, then run this)
+    """
+
+    def run_op(self, argmap):
+        assert DB.CONTACT_OPS_PATH.exists(), f"Write the ops list to {DB.CONTACT_OPS_PATH} first"
+        ops = DB.load_json_output(DB.CONTACT_OPS_PATH)
+        conn = DB.get_connection()
+        try:
+            results = DB.apply_contact_ops(conn, ops)
+        except AssertionError as err:
+            print(err)
+            sys.exit(1)
+        for line in results:
+            print(line)
+        print(f"Applied {len(results)} op(s) from {DB.CONTACT_OPS_PATH}")
 
 
 class ShowContactForTownTool:
@@ -487,6 +626,82 @@ class ShowContactForTownTool:
             label = " - ".join(x for x in (name, company) if x) or "(no name)"
             print(f"  #{contact_id:<4} {label}")
             print(f"        phone={phone or '-'}  email={email or '-'}  web_site={web_site or '-'}  projects={projids}")
+
+
+class LogContactSearchTool:
+    """Record a contact-search pass over a project (contact_search_log
+    table) - call it once per project at the end of every contact-search
+    pass, whatever the result. outcome= is 'found' (contacts created or
+    linked), 'none_found' (searched, nothing usable) or 'skipped' (not
+    worth searching, e.g. a bare trust name on a lot line adjustment).
+    NextForContactSearch holds back none_found/skipped projects until
+    retry_days pass or a new document is linked to them.
+
+    project_ids= logs the same outcome and notes for several projects at
+    once (e.g. a run of non-construction skips); every id is checked
+    first, so a bad id logs nothing.
+
+    Args: project_id=<id> | project_ids=<id>,<id>,...  outcome=found|none_found|skipped  [notes=...]
+    """
+
+    def run_op(self, argmap):
+        project_id = argmap.getInt("project_id", -1)
+        idstr = argmap.getStr("project_ids", "")
+        outcome = argmap.getStr("outcome", "")
+        notes = argmap.getStr("notes", "")
+
+        assert (project_id != -1) != bool(idstr), "Pass exactly one of project_id=<id> or project_ids=<ids>"
+        project_ids = [project_id] if project_id != -1 else \
+            [int(x.strip()) for x in idstr.split(",") if x.strip()]
+
+        conn = DB.get_connection()
+        missing = [pid for pid in project_ids
+                   if not conn.execute("SELECT 1 FROM projects WHERE id = ?", (pid,)).fetchone()]
+        assert not missing, f"No project(s) with id {missing} - nothing logged"
+        assert outcome in DB.CONTACT_SEARCH_OUTCOMES, \
+            f"outcome must be one of {DB.CONTACT_SEARCH_OUTCOMES}, got {outcome!r}"
+
+        with conn:
+            for pid in project_ids:
+                DB.log_contact_search(conn, pid, outcome, notes, commit=False)
+        label = f"project {project_ids[0]}" if len(project_ids) == 1 else f"{len(project_ids)} projects {project_ids}"
+        print(f"Logged contact search for {label}: {outcome}" + (f" - {notes}" if notes else ""))
+
+
+class NextForContactSearchTool:
+    """List projects due for a contact search: no linked contacts, not
+    tagged non-construction, and either never searched, last searched
+    retry_days= or more ago, or linked to a new document since the last
+    search. Never-searched projects first, newest project first within
+    each group; large_first=true puts `large` projects ahead of everything.
+    Prints the last search's outcome/notes for retries.
+
+    Args: [limit=<n>] (default 10)  [retry_days=<n>] (default 30)
+          [large_first=true]  [include_noncon=true]  [town=<slug>]
+    """
+
+    def run_op(self, argmap):
+        limit = argmap.getInt("limit", 10)
+        retry_days = argmap.getInt("retry_days", 30)
+        large_first = argmap.getBit("large_first", False)
+        include_noncon = argmap.getBit("include_noncon", False)
+        town = argmap.getStr("town", "")
+
+        conn = DB.get_connection()
+        rows = DB.contact_search_candidates(
+            conn, limit=limit, retry_days=retry_days, large_first=large_first,
+            include_noncon=include_noncon, town=town)
+
+        if not rows:
+            print("No projects due for a contact search" + (f" in {town}" if town else "") + ".")
+            return
+
+        print(f"{len(rows)} project(s) due for a contact search:")
+        for project_id, slug, tags, desc, last_at, last_outcome, last_notes in rows:
+            print(f"  #{project_id:<4} {slug:<20} {desc}")
+            print(f"        tags={tags or '-'}")
+            if last_at:
+                print(f"        last search {last_at}: {last_outcome}" + (f" - {last_notes}" if last_notes else ""))
 
 
 class LogAnalysisTool:
@@ -638,8 +853,10 @@ class DailyReportTool:
     step of the daily-update skill: every scan pass (FAILED/unclosed ones
     first), documents newly discovered by those passes and whether they've
     been analyzed, projects created, projects whose tags/short_desc changed
-    (e.g. a stage tag moving in-review -> approved), and what's still
-    outstanding (unanalyzed documents, towns still due for a scan).
+    (e.g. a stage tag moving in-review -> approved), contact searches
+    (contact_search_log, with the none_found/skipped ones listed), and
+    what's still outstanding (unanalyzed documents, towns still due for a
+    scan, projects due for a contact search).
 
     Args: [hours=<n>]  (default 24)  [due_days=<n>]  (default 7, for the "still due" count)
     """
@@ -732,9 +949,27 @@ class DailyReportTool:
                 print(f"- #{project_id} {slug}: short_desc was \"{oldval}\"")
         print()
 
+        searches = conn.execute(
+            """
+            SELECT l.project_id, t.slug, COALESCE(p.short_desc, ''), l.outcome, COALESCE(l.notes, '')
+            FROM contact_search_log l
+            JOIN projects p ON l.project_id = p.id
+            JOIN town t ON p.town_id = t.id
+            WHERE l.searched_at >= datetime('now', ?)
+            ORDER BY l.outcome, t.slug, l.project_id
+            """, (since,)).fetchall()
+        bytype = {o: sum(1 for s in searches if s[3] == o) for o in DB.CONTACT_SEARCH_OUTCOMES}
+        print(f"## Contact searches: {len(searches)} "
+              f"({bytype['found']} found, {bytype['none_found']} none found, {bytype['skipped']} skipped)")
+        for project_id, slug, desc, outcome, notes in searches:
+            if outcome != "found":
+                print(f"- #{project_id} {slug}: {outcome}" + (f" - {notes}" if notes else ""))
+        print()
+
         unanalyzed = conn.execute(
             "SELECT COUNT(*) FROM documents d WHERE NOT EXISTS (SELECT 1 FROM analysis_log a WHERE a.document_id = d.id)"
         ).fetchone()[0]
+        contactdue = len(DB.contact_search_candidates(conn, limit=-1))
         stilldue = conn.execute(
             """
             SELECT COUNT(*) FROM (
@@ -748,6 +983,7 @@ class DailyReportTool:
         print("## Outstanding")
         print(f"- {unanalyzed} document(s) not yet analyzed")
         print(f"- {stilldue} town(s) still due for a scan (last good scan >= {due_days}d ago)")
+        print(f"- {contactdue} project(s) due for a contact search")
 
 
 class DocDetailTool:

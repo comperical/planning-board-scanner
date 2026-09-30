@@ -14,9 +14,14 @@ Platform: node-based CivicPlus (see PATTERNS.md), older Drupal template.
 - Board hub: `/planning-board` — full charter text, staff contact, board
   roster, sidebar of sub-resource links, mini calendar widget, inline
   "latest 5" teaser lists with "View all" links.
-- Full archives: `/node/249/agenda` and `.../minutes` — flat
-  reverse-chronological lists (not year-accordioned). `249` is the
-  Planning Board's internal node id.
+- Full archives: `/node/249/agenda` and `.../minutes` — as of 2026-09-29
+  these are just a list of year links; the rows live at
+  `/node/249/agenda/{YYYY}` and `/node/249/minutes/{YYYY}`
+  (reverse-chronological). `249` is the Planning Board's internal node id.
+- Row links (`/planning-board/agenda/planning-board-ph-agenda-114` etc.)
+  redirect to the static PDF - resolve with an in-page
+  `fetch(url,{method:'HEAD'}).then(r=>r.url)` eval, then `FetchUrl` the
+  static path (it isn't Cloudflare-blocked; only the HTML pages are).
 - The listing mixes several meeting/committee types under the same node:
   "Planning Board PH Agenda/Minutes" (regular Public Hearing meetings),
   "Planning Board WS Agenda/Minutes" (Work Sessions), and a very active

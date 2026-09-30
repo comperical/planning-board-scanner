@@ -18,6 +18,8 @@ family as Rochester, Exeter, Rye, etc. No bot protection encountered.
   (`planning-board-agenda-may-27-2026`) — don't assume the numbering is
   fully dense.
 - **Minutes index**: `/node/214/minutes`, same pattern.
+- As of 2026-09-29 both indexes are just year links; rows are at
+  `/node/214/agenda/{YYYY}` and `/node/214/minutes/{YYYY}`.
 - Static PDF path: `sites/g/files/vyhlif956/f/{agendas|minutes}/
   {filename}.pdf` — filenames hand-typed by staff, no fixed pattern.
 - Meetings monthly: 4th Wednesday, 7:00pm, "Macomber Room," 301

@@ -19,8 +19,8 @@ prefixes, matched against the **whole** command string:
 - `playwright-cli -s=planscan ...`
 - `wwiocode/pyscript/plan_entry.py ...` (run from the project root)
 
-Plus `WebSearch`, and Read/Edit/Write anywhere under `working/` and
-`towninfo/`.
+Plus `WebSearch`, `WebFetch`, and Read/Edit/Write anywhere under
+`working/` and `towninfo/`.
 
 Because the match is against the entire command, **never chain, pipe, or
 combine commands** - no `|`, `&&`, `;`, or command substitution tacked onto

@@ -12,7 +12,9 @@ Platform: **Revize CMS** (see PATTERNS.md), PHP-based. No bot protection.
   Technical Review Committee / Route 108 Corridor Study Committee / Age
   Friendly Communities Project (sub-bodies, same pattern as Exeter's
   TRC), Meeting Schedule PDF.
-- Agendas & Minutes page is a year-accordion (2026: 23 docs, 2025: 26,
+- Agendas & Minutes page: `/boards/planning_board/agendas_minutes.php`
+  (single underscore - `agendas___minutes.php` 404s here, though some
+  other Stratham boards do use the triple-underscore slug). It's a year-accordion (2026: 23 docs, 2025: 26,
   2024: 23, 2023: 22 — ~biweekly cadence). Blank cells when a type isn't
   posted yet. Has a "Search for file name" box.
 - Static path: `.../Documents/Boards and Committees/Planning Board/

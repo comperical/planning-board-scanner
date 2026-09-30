@@ -91,15 +91,22 @@ stage tags when a document moves a project forward, `LinkProject` with
 
 **This step is mandatory - never skip it**, even if no towns were due or
 step 2 created no projects (e.g. a re-run after an interruption). Run the
-contact-search loop over projects that have no contacts yet - that includes
-any backlog from earlier runs, not just today's new ones (highest
-`project_id`s first, which is the skill's default order). **Cap it at 15
-projects per run** - prioritize `large` projects and those with a named
+contact-search loop over projects due for a search - that includes any
+backlog from earlier runs, not just today's new ones:
+
+```bash
+wwiocode/pyscript/plan_entry.py NextForContactSearch limit=15 large_first=true
+```
+
+**Cap it at 15 projects per run** - `large_first=true` puts `large`
+projects first; within the list, prefer those with a named
 developer/builder or engineer, and let the rest wait for the next run or a
 standalone `/contact-search`. Keep the skill's rules: check existing
-contacts before creating, reuse firms across projects, and don't record
-guessed details. Only if the skill reports no contact-less projects left
-may you move on with zero contacts added.
+contacts before creating, reuse firms across projects, don't record
+guessed details, and **`LogContactSearch` every project you pick up** -
+including `none_found`/`skipped` ones, or they'll be re-searched tomorrow.
+Only if `NextForContactSearch` reports no projects due may you move on
+with zero contacts added.
 
 ## 4. Report
 
@@ -113,7 +120,8 @@ you're reporting on a missed day.) Save its output as
 **Highlights** section at the top in your own words: the 3-5 most notable
 items for trades pros - new large projects, approvals, projects moving to
 construction - and any towns that FAILED and why. Add a line on contacts:
-projects covered, contacts created vs reused.
+projects covered (the report's "Contact searches" section has the
+found / none found / skipped counts), contacts created vs reused.
 
 End the session with a short message: the highlights, counts (towns
 scanned / failed, new documents, new and updated projects, contacts added),

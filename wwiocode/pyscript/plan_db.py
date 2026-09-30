@@ -49,6 +49,11 @@ DB_UPDATE_PATH = WORK_DIR / "DB_UPDATE.json"
 # run against a read-only connection.
 QUERY_PATH = WORK_DIR / "QUERY.sql"
 
+# Hardcoded input for the BatchContactOps tool (plan_entry.py) - a JSON list
+# of create/link/log operations applied in one transaction. See
+# apply_contact_ops().
+CONTACT_OPS_PATH = WORK_DIR / "CONTACT_OPS.json"
+
 # Hardcoded input for the Upsert tool (plan_entry.py) - one JSON object whose
 # keys are exactly the target table's column names. See upsert_row().
 UPSERT_PATH = WORK_DIR / "UPSERT.json"
@@ -205,6 +210,22 @@ CREATE TABLE IF NOT EXISTS contact_project (
     UNIQUE(contact_id, project_id)
 );
 
+-- One row per contact-search pass over a project (the contact-search
+-- skill) - the contact-side counterpart of analysis_log. A pass that finds
+-- nothing leaves no contact_project rows, so without this log the same
+-- dead-end projects would be re-searched every run. linked_doc_count
+-- snapshots how many documents were linked to the project at search time:
+-- a later-linked document (e.g. minutes naming the engineer) makes the
+-- project eligible again before the retry window runs out.
+CREATE TABLE IF NOT EXISTS contact_search_log (
+    id                  INTEGER PRIMARY KEY,
+    project_id          INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    searched_at         TEXT NOT NULL,     -- UTC timestamp, datetime('now')
+    outcome             TEXT NOT NULL,     -- 'found' | 'none_found' | 'skipped'
+    linked_doc_count    INTEGER NOT NULL DEFAULT 0,
+    notes               TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_scan_log_town ON scan_log(town_id);
 CREATE INDEX IF NOT EXISTS idx_documents_town ON documents(town_id);
 CREATE INDEX IF NOT EXISTS idx_pages_document ON pages(document_id);
@@ -217,7 +238,10 @@ CREATE INDEX IF NOT EXISTS idx_project_documents_document ON project_documents(d
 CREATE INDEX IF NOT EXISTS idx_analysis_log_document ON analysis_log(document_id);
 CREATE INDEX IF NOT EXISTS idx_contact_project_contact ON contact_project(contact_id);
 CREATE INDEX IF NOT EXISTS idx_contact_project_project ON contact_project(project_id);
+CREATE INDEX IF NOT EXISTS idx_contact_search_log_project ON contact_search_log(project_id);
 """
+
+CONTACT_SEARCH_OUTCOMES = ("found", "none_found", "skipped")
 
 
 def get_connection(db_path=DB_PATH):
@@ -615,19 +639,115 @@ def link_project_document(conn, project_id, document_id, page_number=None):
     conn.commit()
 
 
-def create_contact(conn, name="", phone="", email="", web_site="", company=""):
+def create_contact(conn, name="", phone="", email="", web_site="", company="", *, commit=True):
     """Create a new contact_info row and return its id. Like create_project,
-    there's no upsert-by-key - each call makes a new row."""
+    there's no upsert-by-key - each call makes a new row; callers should run
+    find_similar_contacts() first to avoid duplicates. commit=False leaves
+    the insert in the open transaction (for batches)."""
 
     cur = conn.execute(
         "INSERT INTO contact_info (name, company, phone, email, web_site) VALUES (?, ?, ?, ?, ?)",
         (name, company, phone, email, web_site),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return cur.lastrowid
 
 
-def link_contact_project(conn, contact_id, project_id):
+# Words that don't identify a firm - legal suffixes, trade words and
+# place names that many unrelated firms share. find_similar_contacts()
+# ignores them so "Norway Plains Associates, Inc." matches on "norway"/
+# "plains", not on "associates".
+_COMPANY_STOPWORDS = {
+    "the", "and", "of", "a", "an", "at", "for", "by", "c", "o", "dba", "d", "b",
+    "inc", "llc", "pllc", "pc", "llp", "lp", "ltd", "co", "corp", "corporation",
+    "company", "companies", "group", "associates", "assoc", "association", "partners",
+    "engineering", "engineers", "engineer", "design", "consultants", "consulting",
+    "surveying", "survey", "surveyors", "land", "services", "enterprises",
+    "development", "developer", "developers", "properties", "property", "realty",
+    "real", "estate", "holdings", "investments", "construction", "builders", "builder",
+    "homes", "management", "trust", "revocable", "family", "office", "hq",
+    "applicant", "owner", "attorneys", "attorney", "law", "new", "hampshire", "nh",
+    "ma", "me", "division", "formerly", "now", "likely", "affiliated", "with",
+}
+
+# Credentials stripped from the end of a person's name before taking the
+# surname ("Jane Smith, PE" -> "smith").
+_NAME_CREDENTIALS = {"pe", "lls", "pls", "cws", "css", "esq", "eit", "jr", "sr",
+                     "ii", "iii", "iv", "president", "manager", "ceo", "pm"}
+
+
+def _company_tokens(company):
+    words = re.findall(r"[a-z0-9&]+", (company or "").lower())
+    return {w for w in words if w not in _COMPANY_STOPWORDS and len(w) > 1 and w != "&"}
+
+
+def _surnames(name):
+    """Surname(s) in a contact name - handles "Jane Smith, PE", "Bruce
+    Scamman / Nick Bouchard" and "Stephen / Tom Lannan"."""
+
+    result = set()
+    for person in re.split(r"[/;]| and ", (name or "").lower()):
+        person = re.sub(r"\(.*?\)", " ", person)
+        words = [w for w in re.findall(r"[a-z][a-z'-]*", person) if w not in _NAME_CREDENTIALS]
+        if len(words) >= 2:
+            result.add(words[-1])
+    return result
+
+
+def find_similar_contacts(conn, name="", company="", *, exclude_id=None):
+    """Existing contact_info rows that may be the same person or firm as
+    (name, company): a shared distinctive company word (after dropping
+    _COMPANY_STOPWORDS), or a shared surname. Deliberately loose - it's a
+    duplicate warning for a human to judge, not an automatic merge.
+    Returns rows of (id, name, company, phone, email, web_site, reason),
+    best matches first."""
+
+    want_tokens = _company_tokens(company)
+    want_surnames = _surnames(name)
+    if not want_tokens and not want_surnames:
+        return []
+
+    matches = []
+    for row in conn.execute("SELECT id, name, company, phone, email, web_site FROM contact_info"):
+        if row[0] == exclude_id:
+            continue
+        reasons = []
+        shared = want_tokens & _company_tokens(row[2])
+        if shared:
+            reasons.append("company word " + "/".join(sorted(shared)))
+        same_surname = want_surnames & (_surnames(row[1]) | _company_tokens(row[2]))
+        if same_surname:
+            reasons.append("surname " + "/".join(sorted(same_surname)))
+        if reasons:
+            matches.append((len(shared) + 2 * len(same_surname), (*row, "; ".join(reasons))))
+
+    matches.sort(key=lambda m: (-m[0], m[1][0]))
+    return [m[1] for m in matches]
+
+
+def search_contacts(conn, text):
+    """contact_info rows where text appears (case-insensitive) in any of
+    name, company, phone, email or web_site, each with the ids of the
+    projects it's linked to. Rows of (id, name, company, phone, email,
+    web_site, project_ids_csv)."""
+
+    pattern = f"%{text}%"
+    return conn.execute(
+        """
+        SELECT c.id, c.name, c.company, c.phone, c.email, c.web_site,
+               (SELECT GROUP_CONCAT(cp.project_id, ',') FROM contact_project cp
+                WHERE cp.contact_id = c.id)
+        FROM contact_info c
+        WHERE c.name LIKE ? OR c.company LIKE ? OR c.phone LIKE ?
+           OR c.email LIKE ? OR c.web_site LIKE ?
+        ORDER BY c.company, c.name, c.id
+        """,
+        (pattern,) * 5,
+    ).fetchall()
+
+
+def link_contact_project(conn, contact_id, project_id, *, commit=True):
     """Record that contact_id is involved in project_id. Safe to call
     repeatedly - the (contact_id, project_id) pair is unique."""
 
@@ -635,7 +755,250 @@ def link_contact_project(conn, contact_id, project_id):
         "INSERT OR IGNORE INTO contact_project (contact_id, project_id) VALUES (?, ?)",
         (contact_id, project_id),
     )
+    if commit:
+        conn.commit()
+
+
+def unlink_contact_project(conn, contact_id, project_id):
+    """Remove the contact_id <-> project_id link. Returns True if a link
+    was removed."""
+
+    cur = conn.execute(
+        "DELETE FROM contact_project WHERE contact_id = ? AND project_id = ?",
+        (contact_id, project_id),
+    )
     conn.commit()
+    return cur.rowcount > 0
+
+
+def merge_contacts(conn, keep_id, drop_id):
+    """Fold contact drop_id into keep_id: move drop_id's project links to
+    keep_id, copy any field that's blank on keep_id but set on drop_id,
+    then delete drop_id. One transaction. Returns (moved_project_ids,
+    filled_fields)."""
+
+    assert keep_id != drop_id, "keep and drop must be different contacts"
+    cols = ("name", "company", "phone", "email", "web_site")
+    keep = conn.execute(f"SELECT {', '.join(cols)} FROM contact_info WHERE id = ?", (keep_id,)).fetchone()
+    drop = conn.execute(f"SELECT {', '.join(cols)} FROM contact_info WHERE id = ?", (drop_id,)).fetchone()
+    assert keep, f"No contact with id {keep_id}"
+    assert drop, f"No contact with id {drop_id}"
+
+    moved = [r[0] for r in conn.execute(
+        "SELECT project_id FROM contact_project WHERE contact_id = ? ORDER BY project_id", (drop_id,))]
+    filled = [c for c, k, d in zip(cols, keep, drop) if not k and d]
+
+    with conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO contact_project (contact_id, project_id) "
+            "SELECT ?, project_id FROM contact_project WHERE contact_id = ?",
+            (keep_id, drop_id),
+        )
+        conn.execute("DELETE FROM contact_project WHERE contact_id = ?", (drop_id,))
+        for col in filled:
+            conn.execute(f"UPDATE contact_info SET {col} = ? WHERE id = ?",
+                         (drop[cols.index(col)], keep_id))
+        conn.execute("DELETE FROM contact_info WHERE id = ?", (drop_id,))
+    return moved, filled
+
+
+def log_contact_search(conn, project_id, outcome, notes="", *, commit=True):
+    """Record a contact-search pass over project_id - a timestamped
+    contact_search_log row with outcome ('found', 'none_found' or
+    'skipped') and a short note (e.g. "KV Partners ambiguous - municipal
+    engineer, not the developer"). Snapshots the project's current linked
+    document count so contact_search_candidates() can bring it back when a
+    new document is linked. Always inserts a new row (a log, like
+    analysis_log). Returns the new row id."""
+
+    assert outcome in CONTACT_SEARCH_OUTCOMES, \
+        f"outcome must be one of {CONTACT_SEARCH_OUTCOMES}, got {outcome!r}"
+    assert conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone(), \
+        f"No project with id {project_id}"
+
+    cur = conn.execute(
+        """
+        INSERT INTO contact_search_log (project_id, searched_at, outcome, linked_doc_count, notes)
+        VALUES (?, datetime('now'), ?,
+                (SELECT COUNT(*) FROM project_documents WHERE project_id = ?), ?)
+        """,
+        (project_id, outcome, project_id, notes),
+    )
+    if commit:
+        conn.commit()
+    return cur.lastrowid
+
+
+def contact_search_candidates(conn, *, limit=10, retry_days=30, large_first=False,
+                              include_noncon=False, town=""):
+    """Projects due for a contact search, as rows of (project_id, slug,
+    tag_set, short_desc, last_searched_at, last_outcome, last_notes).
+
+    A project is due when it has no contact_project rows (and, unless
+    include_noncon, isn't tagged non-construction) and either:
+      - it has never been searched, or
+      - its last search is at least retry_days old, or
+      - more documents are linked to it now than at its last search.
+
+    Never-searched projects come before retries; within each group newest
+    project_id first. large_first puts `large` projects ahead of everything
+    else (the daily-update priority)."""
+
+    query = """
+        WITH last AS (
+            SELECT l.project_id, l.searched_at, l.outcome, l.linked_doc_count, l.notes
+            FROM contact_search_log l
+            WHERE l.id = (SELECT MAX(l2.id) FROM contact_search_log l2
+                          WHERE l2.project_id = l.project_id)
+        )
+        SELECT p.id, t.slug, COALESCE(p.tag_set, ''), COALESCE(p.short_desc, ''),
+               last.searched_at, last.outcome, last.notes
+        FROM projects p
+        JOIN town t ON t.id = p.town_id
+        LEFT JOIN last ON last.project_id = p.id
+        WHERE NOT EXISTS (SELECT 1 FROM contact_project cp WHERE cp.project_id = p.id)
+          AND (? OR COALESCE(p.tag_set, '') NOT LIKE '%non-construction%')
+          AND (? = '' OR t.slug = ?)
+          AND (last.project_id IS NULL
+               OR julianday('now') - julianday(last.searched_at) >= ?
+               OR (SELECT COUNT(*) FROM project_documents pd WHERE pd.project_id = p.id)
+                  > last.linked_doc_count)
+        ORDER BY
+            CASE WHEN ? AND (',' || COALESCE(p.tag_set, '') || ',') LIKE '%,large,%' THEN 0 ELSE 1 END,
+            last.project_id IS NOT NULL,
+            p.id DESC
+        LIMIT ?
+    """
+    return conn.execute(
+        query,
+        (int(include_noncon), town, town, retry_days, int(large_first), limit),
+    ).fetchall()
+
+
+CONTACT_OPS = ("create", "link", "log")
+
+
+def apply_contact_ops(conn, ops):
+    """Apply a batch of contact-search writes in one transaction - the bulk
+    counterpart of CreateContact / LinkContact / LogContactSearch. ops is a
+    list of dicts, each with "op":
+
+      {"op": "create", "ref": "gpi", "name": ..., "company": ..., "phone": ...,
+       "email": ..., "web_site": ..., "force": false}
+      {"op": "link", "project_id": 164, "contact_ids": [203, "gpi"]}
+      {"op": "log", "project_id": 164 | "project_ids": [1, 2, 3],
+       "outcome": "found" | "none_found" | "skipped", "notes": "..."}
+
+    A create's "ref" names the new contact so later link ops can use it in
+    place of an id. Everything is validated before anything is written -
+    unknown ops/keys, missing projects or contacts, undefined refs, bad
+    outcomes, and creates that look like existing contacts (see
+    find_similar_contacts; pass "force": true to create anyway) - so a bad
+    batch writes nothing. Returns a list of human-readable result lines."""
+
+    assert isinstance(ops, list) and ops, "Contact ops must be a non-empty JSON list"
+
+    allowed_keys = {
+        "create": {"op", "ref", "name", "company", "phone", "email", "web_site", "force"},
+        "link": {"op", "project_id", "contact_ids"},
+        "log": {"op", "project_id", "project_ids", "outcome", "notes"},
+    }
+    project_exists = lambda pid: conn.execute(
+        "SELECT 1 FROM projects WHERE id = ?", (pid,)).fetchone() is not None
+    contact_exists = lambda cid: conn.execute(
+        "SELECT 1 FROM contact_info WHERE id = ?", (cid,)).fetchone() is not None
+
+    # --- validate everything first ---
+    errors = []
+    refs = set()
+    for i, op in enumerate(ops, 1):
+        kind = op.get("op") if isinstance(op, dict) else None
+        if kind not in CONTACT_OPS:
+            errors.append(f"#{i}: op must be one of {CONTACT_OPS}, got {kind!r}")
+            continue
+        extra = sorted(set(op) - allowed_keys[kind])
+        if extra:
+            errors.append(f"#{i} ({kind}): unknown key(s) {extra}")
+
+        if kind == "create":
+            fields = [op.get(k) for k in ("name", "company", "phone", "email", "web_site")]
+            if not any(fields):
+                errors.append(f"#{i} (create): needs at least one of name/company/phone/email/web_site")
+            ref = op.get("ref")
+            if ref is not None:
+                if not isinstance(ref, str) or not ref or ref in refs:
+                    errors.append(f"#{i} (create): ref must be a unique non-empty string, got {ref!r}")
+                refs.add(ref)
+            if not op.get("force"):
+                similar = find_similar_contacts(conn, op.get("name", ""), op.get("company", ""))
+                if similar:
+                    label = " - ".join(x for x in (op.get("name"), op.get("company")) if x)
+                    lines = [f"#{i} (create {label!r}): possible existing contact(s) - reuse one "
+                             f"with a link op, or add \"force\": true if it's really new:"]
+                    for cid, cname, ccompany, cphone, _, _, reason in similar[:5]:
+                        lines.append(f"      #{cid} {' - '.join(x for x in (cname, ccompany) if x)} "
+                                     f"({cphone or 'no phone'}) [{reason}]")
+                    errors.append("\n".join(lines))
+
+        elif kind == "link":
+            pid = op.get("project_id")
+            if not isinstance(pid, int) or not project_exists(pid):
+                errors.append(f"#{i} (link): no project with id {pid!r}")
+            cids = op.get("contact_ids")
+            if not isinstance(cids, list) or not cids:
+                errors.append(f"#{i} (link): contact_ids must be a non-empty list")
+                continue
+            for cid in cids:
+                if isinstance(cid, str):
+                    if cid not in refs:
+                        errors.append(f"#{i} (link): ref {cid!r} isn't created by an earlier op")
+                elif not isinstance(cid, int) or not contact_exists(cid):
+                    errors.append(f"#{i} (link): no contact with id {cid!r}")
+
+        else:  # log
+            pids = op.get("project_ids")
+            if pids is None and "project_id" in op:
+                pids = [op["project_id"]]
+            if "project_id" in op and "project_ids" in op:
+                errors.append(f"#{i} (log): pass project_id or project_ids, not both")
+            if not isinstance(pids, list) or not pids:
+                errors.append(f"#{i} (log): project_id or project_ids is required")
+            else:
+                bad = [pid for pid in pids if not isinstance(pid, int) or not project_exists(pid)]
+                if bad:
+                    errors.append(f"#{i} (log): no project(s) with id {bad}")
+            if op.get("outcome") not in CONTACT_SEARCH_OUTCOMES:
+                errors.append(f"#{i} (log): outcome must be one of {CONTACT_SEARCH_OUTCOMES}, "
+                              f"got {op.get('outcome')!r}")
+
+    assert not errors, "Nothing written - fix these ops:\n" + "\n".join(errors)
+
+    # --- apply in one transaction ---
+    results = []
+    ref_ids = {}
+    with conn:
+        for op in ops:
+            kind = op["op"]
+            if kind == "create":
+                cid = create_contact(conn, op.get("name", ""), op.get("phone", ""), op.get("email", ""),
+                                     op.get("web_site", ""), company=op.get("company", ""), commit=False)
+                if op.get("ref"):
+                    ref_ids[op["ref"]] = cid
+                label = " - ".join(x for x in (op.get("name"), op.get("company")) if x)
+                results.append(f"Created contact {cid} ({label})"
+                               + (f" as ref {op['ref']!r}" if op.get("ref") else ""))
+            elif kind == "link":
+                cids = [ref_ids[c] if isinstance(c, str) else c for c in op["contact_ids"]]
+                for cid in cids:
+                    link_contact_project(conn, cid, op["project_id"], commit=False)
+                results.append(f"Linked project {op['project_id']} <-> contact(s) {cids}")
+            else:
+                pids = op.get("project_ids") or [op["project_id"]]
+                for pid in pids:
+                    log_contact_search(conn, pid, op["outcome"], op.get("notes", ""), commit=False)
+                results.append(f"Logged {op['outcome']} for project(s) {pids}"
+                               + (f" - {op['notes']}" if op.get("notes") else ""))
+    return results
 
 
 def log_analysis(conn, file_path, notes="", *, source_url=None):
