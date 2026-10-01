@@ -51,6 +51,12 @@ PSUTIL = {
             &nbsp;
             &nbsp;
 
+            <a href="../planscan/projects"><button>Projects</button></a>
+
+            &nbsp;
+            &nbsp;
+            &nbsp;
+
             <a href="../planscan/towns"><button>Towns</button></a>
 
             </div>

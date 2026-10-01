@@ -6,6 +6,7 @@
 <wisp/>
 
 <script src="/u/shared/optjs/SimpleModal/v1.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"> </link>
 
 <style>
 .doc-page-text {
@@ -77,6 +78,9 @@ let EDIT_STUDY_ITEM = -1;
 
 let SELECTED_PROJECT_ID = -1;
 
+// YYYY-MM-DD; documents older than this are hidden. "" means no cutoff.
+let DATE_CUTOFF = "";
+
 const TOWN_SEL_KEY = "TownSelKey";
 
 GENERIC_OPT_SELECT_MAP.set(TOWN_SEL_KEY, -1);
@@ -101,6 +105,17 @@ function getTownNameMap() {
 
 function getSelectedTownId() {
 	return parseInt(GENERIC_OPT_SELECT_MAP.get(TOWN_SEL_KEY));
+}
+
+function setDateCutoff(cutoff) {
+	DATE_CUTOFF = cutoff || "";
+	redisplay();
+}
+
+// Documents with no date can't be shown to be recent, so they are hidden
+// whenever a cutoff is set.
+function matchesDateCutoff(item) {
+	return DATE_CUTOFF == "" || (item.getDocDate() || "") >= DATE_CUTOFF;
 }
 
 function getPagesForDoc(docid) {
@@ -279,6 +294,11 @@ function getUiControlTable() {
 		<td>Town</td>
 		<td colspan="2">${townsel}</td>
 		</tr>
+		<tr>
+		<td>Document On/After</td>
+		<td colspan="${DATE_CUTOFF == "" ? 2 : 1}"><input type="date" value="${DATE_CUTOFF}" onchange="javascript:setDateCutoff(this.value)"/></td>
+		${DATE_CUTOFF == "" ? "" : `<td><a href="javascript:setDateCutoff('')" title="Clear date filter"><i class="fa-solid fa-eraser"></i></a></td>`}
+		</tr>
 		</table>
 	`;
 }
@@ -307,6 +327,7 @@ function getMainPageInfo() {
 
 	const itemlist = W.getItemList(MAIN_TABLE)
 		.filter(item => towntrg == -1 || item.getTownId() == towntrg)
+		.filter(item => matchesDateCutoff(item))
 		.sort(U.proxySort(item => [item.getDocDate() || ""]))
 		.reverse();
 

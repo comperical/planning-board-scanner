@@ -34,6 +34,11 @@
 .project-md ul { padding-left: 20px; }
 .project-md li { margin-bottom: 4px; }
 
+.search-term {
+	width: 45%;
+	text-align: center;
+}
+
 </style>
 
 <script>
@@ -45,6 +50,8 @@ let EDIT_STUDY_ITEM = -1;
 // YYYY-MM-DD; projects whose latest document is older than this are hidden.
 // "" means no cutoff.
 let DATE_CUTOFF = "";
+
+let SEARCH_TEXT = "";
 
 const TOWN_SEL_KEY = "TownSelKey";
 const TAG_SEL_KEY = "TagSelKey";
@@ -103,6 +110,22 @@ function matchesTagFilter(item, tagtrg) {
 	const taglist = getTagList(item);
 	if(tagtrg == "untagged") { return taglist.length == 0; }
 	return taglist.includes(tagtrg);
+}
+
+function setSearchText(text) {
+	SEARCH_TEXT = text.trim();
+	redisplay();
+}
+
+function promptSearchText() {
+	const text = prompt("Search descriptions, towns, and tags:");
+	if(text != null) { setSearchText(text); }
+}
+
+function matchesTextSearch(item) {
+	if(SEARCH_TEXT == "") { return true; }
+	return [item.getShortDesc(), item.getFullMdText(), getTownName(item.getTownId()), item.getTagSet()]
+		.some(value => (value || "").toLowerCase().includes(SEARCH_TEXT.toLowerCase()));
 }
 
 // project id -> list of linked documents, built once per redisplay
@@ -473,6 +496,13 @@ function getUiControlTable() {
 	return `
 		<table class="basic-table" width="50%">
 		<tr>
+		<td>Search</td>
+		<td class="search-term">${escapeHtml(SEARCH_TEXT)}</td>
+		<td>${SEARCH_TEXT == ""
+			? `<a href="javascript:promptSearchText()" title="Set search term" aria-label="Set search term"><img src="/u/shared/image/edit.png" height="18" alt="Set search term"/></a>`
+			: `<a href="javascript:setSearchText('')" title="Clear search" aria-label="Clear search"><i class="fa-solid fa-eraser"></i></a>`}</td>
+		</tr>
+		<tr>
 		<td>Town</td>
 		<td colspan="2">${townsel}</td>
 		</tr>
@@ -498,7 +528,7 @@ function getUiControlTable() {
 	`;
 }
 
-// Projects matching the current town/tag filters, in the current sort
+// Projects matching the current text/town/tag/date filters, in the current sort
 // order - what the main listing shows, and what copySelection copies
 function getSelectedProjects(docmap) {
 
@@ -510,6 +540,7 @@ function getSelectedProjects(docmap) {
 	return W.getItemList(MAIN_TABLE)
 		.filter(item => towntrg == -1 || item.getTownId() == towntrg)
 		.filter(item => matchesTagFilter(item, tagtrg))
+		.filter(item => matchesTextSearch(item))
 		.filter(item => matchesDateCutoff(docmap.get(item.getId()) || []))
 		.sort(getSortComparator(sortkey, docmap));
 }
