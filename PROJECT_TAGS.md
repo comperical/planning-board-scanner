@@ -21,10 +21,10 @@ the Projects page can sort and filter leads for trades pros.
 
 ## Tag groups
 
-A project typically gets 4-6 tags total. Groups 1 (one sector) and 4 (one
+A project typically gets 4-8 tags total. Groups 1 (one sector) and 4 (one
 stage) apply to every project; group 3 to every project with physical work
 (a `non-construction` project may have none); group 2 only to projects
-that include housing; group 5 only when the flag applies.
+that include housing; groups 5 and 6 only when the flag/trade applies.
 
 ### 1. Sector - who/what the project is for
 
@@ -101,6 +101,32 @@ Add only when the flag applies.
 | `large` | 20+ dwelling units, or 20,000+ SF of building, or a major public/utility job | #82 Liberty Common (140 units); #55 2 x 162,000 SF warehouses; #83 72,300 SF self-storage; #98 1-mile road rebuild |
 | `non-construction` | Purely administrative - little or no trades work expected (rezoning, covenants, escrow payments, rental/use permits, signage) | #22 375 Banfield Rd rezoning; #26 restrictive covenant; #10-#13 escrow payments; #70 short-term rental CUP; #16 billboard |
 
+### 6. Trades - specific scope the write-up mentions
+
+Tag a trade only when the documents actually mention that scope (a septic
+design, a new well, a cistern, blasting, a dock...). Don't infer it: trades
+that follow from the work type alone (framing, plumbing, electrical, HVAC,
+roofing for any new building) are derived from groups 1-3 by the Projects
+page's Trade filter (`TRADE_RULES` in `wwiocode/planscan/projects.wisp`),
+so they have no tag here. Demolition is already the group 3 `demolition`
+tag.
+
+| Tag | Meaning | Examples |
+|---|---|---|
+| `excavation` | Significant earthwork beyond a routine foundation dig - mass grading, ledge removal/blasting, earth/gravel removal, large cut/fill | gravel pit / excavation permits; ledge blasting for a subdivision road |
+| `septic` | New or replacement septic system / leach field (State subdivision or ISDS approval) | rural subdivision lots on septic; septic replacement for a change of use |
+| `well` | New drinking-water well(s), or a community water system | new lots on private wells; on-site well for a commercial site |
+| `paving` | New or rebuilt paved parking lots, paved driveways or private roads | new parking lot; paved common driveway |
+| `utility-connection` | Private-side water/sewer/gas/electric service runs, pump/lift stations, underground utilities | extending sewer service to a new building; underground electric for a subdivision |
+| `tree-clearing` | Land clearing, timber cutting or tree removal as part of the project | wooded lot cleared for a subdivision; buffer tree removal |
+| `concrete` | Notable concrete/masonry scope - retaining walls, large slabs, structured foundations | retaining wall along a driveway; slab-on-grade warehouse |
+| `fire-protection` | Sprinkler systems, fire cisterns/ponds, fire-suppression or pump houses | cistern required for a rural subdivision; #69 34 Lafayette Rd suppression pump house |
+| `site-electrical` | Site/parking-lot lighting, new electric service or transformers, EV chargers, generators | photometric plan for a lot; EV charging station |
+| `signage` | New or replaced signs - freestanding, building-mounted, electronic | new pylon sign; billboard |
+| `marine` | Docks, piers, seawalls and other shoreland/waterfront structures | dock replacement; seawall repair |
+| `fencing` | Fencing required or shown on the plan (screening, pool, security) | screening fence along an abutter; dumpster enclosure |
+| `solar` | Solar arrays, rooftop or ground-mounted | ground-mount array; solar canopy over parking |
+
 ## Worked examples
 
 | Project | `tag_set` |
@@ -108,5 +134,6 @@ Add only when the flag applies.
 | #82 Liberty Common, 140-unit condo development, hearing continued | `residential,multifamily,condo,new-construction,subdivision,road-infrastructure,in-review,large` |
 | #111 559 Winnacunnet Rd, teardown + new single-family home, approved | `residential,single-family,demolition,new-construction,approved` |
 | #113 5R Falcone Circle, water tank replacement, preconstruction held | `utility,demolition,new-construction,construction` |
-| #92 77 Long Hill Rd, church parking lot rebuild, TRC review | `institutional,sitework,in-review` |
+| #92 77 Long Hill Rd, church parking lot rebuild, TRC review | `institutional,sitework,in-review,paving` |
+| Rural 6-lot subdivision on septic and wells, new road with fire cistern, approved | `residential,single-family,subdivision,road-infrastructure,approved,septic,well,paving,tree-clearing,fire-protection` |
 | #22 375 Banfield Rd rezoning | `commercial,in-review,non-construction` |

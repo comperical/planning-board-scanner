@@ -60,5 +60,6 @@ Center (see PATTERNS.md) — no bot protection.
   reports) - not taken routinely.
 - **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare); browser
   `<a download>` + `ClaimDownload` works (saves as `{MMDDYYYY}.pdf`).
+  2026-10-03: plain `FetchUrl` worked again - try it first.
 - No minutes posted in the Agenda Center section for 2026. Agendas go up
   ~2 weeks ahead.

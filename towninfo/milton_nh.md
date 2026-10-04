@@ -3,7 +3,9 @@
 Investigated: 2026-09-14
 
 Strafford County town, Maine border, north of Farmington. Platform:
-node-based CivicPlus (see PATTERNS.md). No bot protection.
+node-based CivicPlus (see PATTERNS.md). **Cloudflare since ~2026-10-03**:
+listing pages 403 headless, pass headed; static `sites/g/files` PDFs
+still `FetchUrl`-able.
 
 ## Platform notes
 

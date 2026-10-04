@@ -67,14 +67,18 @@ prints the new `project_id`. Then write its files (see the
   address, applicant/owner, status, unit/sq-ft counts, anything concrete.
   Use the Write tool.
 - `working/project_edit/<project_id>.json` - `{"short_desc": "one-line
-  summary", "tag_set": [...]}`. Use the Write tool.
+  summary", "address": "street address", "tag_set": [...]}`. `address` is
+  the project's location (e.g. `"150 Portsmouth Blvd"`; a map/lot
+  reference if that's all the document gives); use `""` if none is found.
+  Use the Write tool.
 
 **Tags are required on every new project.** Pick them from
 `PROJECT_TAGS.md` (repo root) - it defines every tag, which groups apply,
 and has worked examples. In short: exactly one sector tag, exactly one
 stage tag, every work-type tag that applies, housing-type tags if it
-includes housing, and the `large` / `non-construction` flags when they
-apply. `ApplyProjectEdit` validates the list against that file (unknown
+includes housing, the `large` / `non-construction` flags when they
+apply, and every group 6 trade tag (`septic`, `well`, `paving`,
+`fire-protection`, ...) whose scope the documents actually mention. `ApplyProjectEdit` validates the list against that file (unknown
 tags, or not exactly one sector/stage, are rejected - nothing is written
 and the edit files are kept, so fix the `.json` and re-run). Never invent a
 tag; if nothing fits, add it to `PROJECT_TAGS.md` first and mention that in
@@ -115,12 +119,13 @@ square footage, contractor/engineer names), or corrected facts:
 - **Tags** - always re-check the **stage** tag against this document (e.g.
   `in-review` -> `approved` on an approval, `approved` -> `construction`
   at a preconstruction meeting, -> `complete` on a surety release), and add
-  any newly revealed work-type/housing/`large` tags. `tag_set` in the
+  any newly revealed work-type/housing/trade/`large` tags. `tag_set` in the
   `.json` **replaces the whole set**, so start from the current tags shown
   by `DbStatus` and edit them - don't send only the changed tag. If the
   project is still untagged (older rows), tag it fully now.
 - **short_desc** - update it if it states a status or scope that is now
   out of date.
+- **address** - fill it in if it's empty and this document gives one.
 - **Write-up** - rewrite `working/project_edit/<id>.md` in full with the
   new information folded in (the `.md` replaces `full_md_text` entirely -
   read the current text first, e.g. in the Projects page or DB, so nothing

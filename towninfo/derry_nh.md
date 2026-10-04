@@ -9,12 +9,14 @@ Castle/Rye/Exeter. No bot protection.
 
 ## Platform notes
 
-- Main site: `https://www.derrynh.gov`. Planning Board hub:
-  `/planning-board`.
-- Agendas index: `/node/206/agenda`, years 2016-2026, drill into
-  `/node/206/agenda/{year}`. Each entry links to
-  `/planning-board/agenda/planning-board-agenda-{MMDDYYYY}[-N]` (the `-N`
-  suffix disambiguates same-date collisions).
+- Main site: `https://www.derrynh.gov`.
+- **Migrated to CivicEngage Agenda Center (found 2026-10-03)**: the old
+  `/planning-board` hub and `/node/206/agenda/{year}` listings now 404.
+  Use `/AgendaCenter` (section "Planning Board") - standard listing scrape
+  from PATTERNS.md works. Files at
+  `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}`; plain
+  `FetchUrl` works (no Cloudflare as of 2026-10-03). Minutes are posted on
+  the same row as their agenda.
 - Meetings: 1st & 3rd Wednesday, 7pm, Derry Municipal Center.
 - Sidebar links worth a future pass: "Planning Board Fees per RSA 673",
   and — most relevant — a "Gateway Zoning Committee" sub-page and a "West

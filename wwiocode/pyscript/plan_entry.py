@@ -235,8 +235,8 @@ class CreateProjectTool:
     """Create a new row in the projects table (a real development spotted
     by hand from one or more documents - see plan_db.py) and print its id.
     Fills in just enough to identify the row - use ApplyProjectEdit
-    afterward (working/project_edit/<id>.md + .json) to fill in short_desc
-    and the full markdown write-up.
+    afterward (working/project_edit/<id>.md + .json) to fill in short_desc,
+    address and the full markdown write-up.
 
     Args: town=<slug>
     """
@@ -255,7 +255,8 @@ class CreateProjectTool:
 class ApplyProjectEditTool:
     """Apply working/project_edit/<project_id>.md (the full_md_text field -
     free-form markdown) and/or working/project_edit/<project_id>.json
-    (every other updatable field: {"short_desc": "...", "tag_set": [...]} -
+    (every other updatable field: {"short_desc": "...", "address": "...",
+    "tag_set": [...]} -
     tag_set replaces the project's whole tag set and is validated against
     PROJECT_TAGS.md: known tags only, exactly one sector and one stage tag)
     to an existing projects row. Either file may be absent (that side is

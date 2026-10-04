@@ -35,8 +35,11 @@ this project. No bot protection on either domain.
   Agendas section is loaded up front.
 - Minutes are posted quickly (as "DRAFT", within ~2 weeks), including
   separate site-walk minutes per case - prefer them over the agenda.
-- Meeting Documents (per-case support docs) had nothing for 2026 as of
-  2026-09-24 (latest Dec 2025).
+- Meeting Documents (per-case support docs): **as of 2026-10-02 the full
+  2026 run is posted** (Mar-Oct, ~50 files; it was empty on 9/24). Titled
+  `MM.DD.YYYY PB-YYYY-NNN <case name>` - full application packets / plan
+  sets, often 20-50MB and 70-180pp. Only take ones for cases that are new
+  or changing; 2026 entries before 9/17 were not backfilled.
 - **eCode360 rate-limits**: 429 after ~6 rapid `FetchUrl`s; a retry a
   minute later works.
 

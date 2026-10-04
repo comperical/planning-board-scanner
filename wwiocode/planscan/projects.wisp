@@ -55,11 +55,13 @@ let SEARCH_TEXT = "";
 
 const TOWN_SEL_KEY = "TownSelKey";
 const TAG_SEL_KEY = "TagSelKey";
+const TRADE_SEL_KEY = "TradeSelKey";
 const SORT_SEL_KEY = "SortSelKey";
 
 // TESTING: default to Barnstead (town id 17) while building the history view; normally -1
 GENERIC_OPT_SELECT_MAP.set(TOWN_SEL_KEY, 17);
 GENERIC_OPT_SELECT_MAP.set(TAG_SEL_KEY, "any");
+GENERIC_OPT_SELECT_MAP.set(TRADE_SEL_KEY, "any");
 GENERIC_OPT_SELECT_MAP.set(SORT_SEL_KEY, "latest_doc");
 
 const SORT_OPTION_MAP = new Map([
@@ -76,6 +78,27 @@ function getTownName(townid) {
 	const town = W.lookupItem('town', townid);
 	if(town == null) { return "?"; }
 	return `${town.getName()}, ${town.getState()}`;
+}
+
+// Zoom level for the map links (higher = closer; Google's default for an
+// address is ~17, too tight to see the surrounding area)
+const MAP_ZOOM = 10;
+
+// Google Maps URL for the project's address (plus town/state so a bare
+// street address resolves to the right place), or null if no address.
+// Uses the classic q=/z= form, since the api=1 search URL has no zoom option.
+function getMapUrl(item) {
+	const address = (item.getAddress() || "").trim();
+	if(!address) { return null; }
+	const query = `${address}, ${getTownName(item.getTownId())}`;
+	return `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=${MAP_ZOOM}`;
+}
+
+function getMapIconHtml(item) {
+	const mapurl = getMapUrl(item);
+	if(mapurl == null) { return ""; }
+	return `<a href="${escapeHtml(mapurl)}" target="_blank" title="${escapeHtml(item.getAddress())}"
+		onclick="event.stopPropagation()"><i class="fa-solid fa-map-location-dot"></i></a>`;
 }
 
 function getTownNameMap() {
@@ -110,6 +133,55 @@ function matchesTagFilter(item, tagtrg) {
 	const taglist = getTagList(item);
 	if(tagtrg == "untagged") { return taglist.length == 0; }
 	return taglist.includes(tagtrg);
+}
+
+// Trade filter: expands each trade into the tag combinations that imply
+// work for it. A project matches a trade if it has ALL the tags of ANY one
+// clause. Explicit trade tags (PROJECT_TAGS.md group 6) are listed first;
+// the rest is inferred from sector/housing/work-type tags.
+const TRADE_RULES = [
+	["excavation", "Excavation / Earthwork", [["excavation"], ["sitework"], ["subdivision"], ["road-infrastructure"],
+		["septic"], ["utility-connection"], ["new-construction"]]],
+	["septic", "Septic", [["septic"]]],
+	["well", "Well Drilling", [["well"]]],
+	["paving", "Paving", [["paving"], ["road-infrastructure"]]],
+	["utility", "Utility / Underground", [["utility-connection"], ["road-infrastructure"]]],
+	["tree-clearing", "Tree Clearing / Logging", [["tree-clearing"]]],
+	["concrete", "Concrete / Foundations", [["concrete"], ["new-construction"], ["addition"]]],
+	["demolition", "Demolition", [["demolition"]]],
+	["builder", "General Contractor / Framing", [["new-construction"], ["addition"], ["conversion"]]],
+	["home-builder", "Home Builder / Modular", [["single-family", "new-construction"], ["single-family", "subdivision"]]],
+	["steel-building", "Steel / Metal Buildings", [["industrial", "new-construction"], ["industrial", "addition"]]],
+	["electrical", "Electrical", [["site-electrical"], ["solar"], ["new-construction"], ["addition"], ["conversion"], ["renovation"]]],
+	["plumbing", "Plumbing", [["new-construction"], ["addition"], ["conversion"]]],
+	["hvac", "HVAC", [["new-construction"], ["addition"], ["conversion"], ["renovation"]]],
+	["roofing", "Roofing", [["new-construction"], ["addition"], ["renovation"]]],
+	["fire-protection", "Fire Protection / Sprinklers", [["fire-protection"]]],
+	["landscaping", "Landscaping", [["landscaping"], ["multifamily", "new-construction"],
+		["commercial", "new-construction"], ["institutional", "new-construction"]]],
+	["fencing", "Fencing", [["fencing"]]],
+	["signage", "Signs", [["signage"]]],
+	["marine", "Docks / Marine", [["marine"]]],
+	["solar", "Solar", [["solar"]]]
+];
+
+const TRADE_RULE_MAP = new Map(TRADE_RULES.map(([key, label, clauses]) => [key, clauses]));
+
+function matchesTradeFilter(item, tradetrg) {
+	if(tradetrg == "any") { return true; }
+	const taglist = getTagList(item);
+	return TRADE_RULE_MAP.get(tradetrg).some(clause => clause.every(tag => taglist.includes(tag)));
+}
+
+// Trade filter options, labeled with the number of matching projects
+function getTradeOptionMap() {
+	const itemlist = W.getItemList(MAIN_TABLE);
+	const trademap = new Map([["any", "---"]]);
+	TRADE_RULES.forEach(function([key, label]) {
+		const count = itemlist.filter(item => matchesTradeFilter(item, key)).length;
+		trademap.set(key, `${label} (${count})`);
+	});
+	return trademap;
 }
 
 function setSearchText(text) {
@@ -152,6 +224,14 @@ function getLatestDocDate(doclist) {
 	const datelist = doclist.map(doc => doc.getDocDate()).filter(d => d != null);
 	if(datelist.length == 0) { return ""; }
 	return datelist.sort().reverse()[0];
+}
+
+// YYYY-MM-DD -> short "Jan 15" display. Dates outside the DayCode
+// system's range are shown as-is.
+function getShortDateDisplay(isodate) {
+	if(!isodate || !U.haveDayCodeForString(isodate)) { return isodate || ""; }
+	const daycode = U.lookupDayCode(isodate);
+	return `${daycode.getMonthName().substring(0, 3)} ${parseInt(isodate.substring(8))}`;
 }
 
 function getSortComparator(sortkey, docmap) {
@@ -398,6 +478,10 @@ function getEditPageInfo() {
 	<td class="left-align">${item.getShortDesc() || "(no short_desc)"}</td>
 	<td><a href="javascript:U.genericEditTextField(MAIN_TABLE, 'short_desc', EDIT_STUDY_ITEM)"><img src="/u/shared/image/edit.png" height="18"></a></td>
 	</tr>
+	<tr><td>Address</td>
+	<td class="left-align">${item.getAddress() || ""}</td>
+	<td><a href="javascript:U.genericEditTextField(MAIN_TABLE, 'address', EDIT_STUDY_ITEM)"><img src="/u/shared/image/edit.png" height="18"></a></td>
+	</tr>
 	<tr><td>#Docs</td><td>${doclinklist.length}</td><td></td></tr>
 	<tr><td>Latest Doc</td><td>${latest || "?"}</td><td></td></tr>
 	<tr><td>Tags</td><td class="left-align">${getTagList(item).join(", ") || "(untagged)"}</td><td></td></tr>
@@ -484,6 +568,13 @@ function getUiControlTable() {
 						.useGenericUpdater()
 						.getHtmlString();
 
+	const tradesel = buildOptSelector()
+						.configureFromMap(getTradeOptionMap())
+						.setElementName(TRADE_SEL_KEY)
+						.setSelectedKey(GENERIC_OPT_SELECT_MAP.get(TRADE_SEL_KEY))
+						.useGenericUpdater()
+						.getHtmlString();
+
 	const sortsel = buildOptSelector()
 						.configureFromMap(SORT_OPTION_MAP)
 						.setElementName(SORT_SEL_KEY)
@@ -511,6 +602,10 @@ function getUiControlTable() {
 		<td colspan="2">${tagsel}</td>
 		</tr>
 		<tr>
+		<td>Trade</td>
+		<td colspan="2">${tradesel}</td>
+		</tr>
+		<tr>
 		<td>Latest Doc On/After</td>
 		<td colspan="${DATE_CUTOFF == "" ? 2 : 1}"><input type="date" value="${DATE_CUTOFF}" onchange="javascript:setDateCutoff(this.value)"/></td>
 		${DATE_CUTOFF == "" ? "" : `<td><a href="javascript:setDateCutoff('')" title="Clear date filter"><i class="fa-solid fa-eraser"></i></a></td>`}
@@ -528,18 +623,20 @@ function getUiControlTable() {
 	`;
 }
 
-// Projects matching the current text/town/tag/date filters, in the current sort
+// Projects matching the current text/town/tag/trade/date filters, in the current sort
 // order - what the main listing shows, and what copySelection copies
 function getSelectedProjects(docmap) {
 
 	docmap = docmap || getProjectDocMap();
 	const towntrg = getSelectedTownId();
 	const tagtrg = GENERIC_OPT_SELECT_MAP.get(TAG_SEL_KEY);
+	const tradetrg = GENERIC_OPT_SELECT_MAP.get(TRADE_SEL_KEY);
 	const sortkey = GENERIC_OPT_SELECT_MAP.get(SORT_SEL_KEY);
 
 	return W.getItemList(MAIN_TABLE)
 		.filter(item => towntrg == -1 || item.getTownId() == towntrg)
 		.filter(item => matchesTagFilter(item, tagtrg))
+		.filter(item => matchesTradeFilter(item, tradetrg))
 		.filter(item => matchesTextSearch(item))
 		.filter(item => matchesDateCutoff(docmap.get(item.getId()) || []))
 		.sort(getSortComparator(sortkey, docmap));
@@ -552,6 +649,10 @@ function getMainPageInfo() {
 	const contactcountmap = getProjectContactCountMap();
 	const itemlist = getSelectedProjects(docmap);
 	const towndatemaps = HISTORY.getAllTownDateMaps();
+
+	// With a single town selected, show the contact count; across all towns,
+	// show the latest mention date instead
+	const towntrg = getSelectedTownId();
 
 	var pageinfo = `<h3>PlanScan Projects</h3>
 
@@ -572,9 +673,10 @@ function getMainPageInfo() {
 		<table class="basic-table" width="95%">
 		<tr>
 		<th width="12%">Town</th>
+		<th width="3%"></th>
 		<th>Basic Info</th>
 		<th width="18%">Tags</th>
-		<th width="8%">#Contacts</th>
+		${towntrg == -1 ? `<th width="10%">Last Mention</th>` : `<th width="8%">#Contacts</th>`}
 		<th width="14%">Mentioned On</th>
 		</tr>
 	`;
@@ -586,9 +688,10 @@ function getMainPageInfo() {
 		const rowstr = `
 			<tr class="editable" onclick="javascript:editStudyItem(${item.getId()})">
 			<td>${getTownName(item.getTownId())}</td>
+			<td>${getMapIconHtml(item)}</td>
 			<td class="left-align">${item.getShortDesc() || "(no short_desc)"}</td>
 			<td class="left-align">${getTagList(item).join(", ")}</td>
-			<td>${contactcountmap.get(item.getId()) || ""}</td>
+			<td>${towntrg == -1 ? getShortDateDisplay(getLatestDocDate(doclist)) : (contactcountmap.get(item.getId()) || "")}</td>
 			<td>${HISTORY.getProjectStripHtml(doclist, towndatemaps.get(item.getTownId()) || new Map())}</td>
 			</tr>
 		`;

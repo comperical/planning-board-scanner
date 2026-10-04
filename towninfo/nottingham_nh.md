@@ -4,7 +4,11 @@ Investigated: 2026-09-14
 
 Rockingham County town (northwest border, near Strafford County).
 Platform: node-based CivicPlus (see PATTERNS.md), same family as New
-Castle/Derry. No bot protection.
+Castle/Derry. **Cloudflare since ~2026-10-03**: listing pages 403
+("Just a moment") in headless mode but pass headed; the static
+`sites/g/files/...` PDFs still download with plain `FetchUrl`. Minutes
+listing: `/node/176/minutes/{year}`; detail pages redirect to the PDF
+(resolve via in-page `fetch(...)` and read `r.url`).
 
 ## Platform notes
 

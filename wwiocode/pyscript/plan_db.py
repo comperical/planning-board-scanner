@@ -50,7 +50,8 @@ UPSERT_PATH = WORK_DIR / "UPSERT.json"
 # tool in plan_entry.py / sync_project_from_files() below): to update
 # project <id>, write working/project_edit/<id>.md (the full_md_text field
 # - free-form markdown) and/or working/project_edit/<id>.json (every other
-# updatable field: {"short_desc": "...", "tag_set": [...]}), then run the tool
+# updatable field: {"short_desc": "...", "address": "...", "tag_set": [...]}),
+# then run the tool
 # to apply both to the DB. Either file may be omitted to leave that side
 # unchanged.
 PROJECT_EDIT_DIR = WORK_DIR / "project_edit"
@@ -140,6 +141,7 @@ CREATE TABLE IF NOT EXISTS projects (
     id                  INTEGER PRIMARY KEY,
     town_id             INTEGER REFERENCES town(id),
     short_desc          TEXT,              -- one-line summary, e.g. "150 Portsmouth Blvd - 3-building multifamily"
+    address             TEXT DEFAULT '',   -- location of the project, e.g. "150 Portsmouth Blvd"; '' = not found
     full_md_text        TEXT,              -- full markdown write-up: description, status, addresses, applicant, etc.
     tag_set             TEXT DEFAULT '',   -- comma-separated set of tags, e.g. "residential,multifamily"; '' = no tags
     created_at          TEXT               -- UTC timestamp, datetime('now'); NULL for rows created before this column existed
@@ -267,6 +269,8 @@ def _run_migrations(conn):
     if "created_at" not in cols:
         # SQLite's ADD COLUMN can't take a datetime('now') default - create_project sets it explicitly
         conn.execute("ALTER TABLE projects ADD COLUMN created_at TEXT")
+    if "address" not in cols:
+        conn.execute("ALTER TABLE projects ADD COLUMN address TEXT DEFAULT ''")
 
     cols = {row[1] for row in conn.execute("PRAGMA table_info(contact_info)")}
     if "company" not in cols:
@@ -573,8 +577,8 @@ def normalize_tag_set(tags, vocab=None):
     return ",".join(t for t in vocab if t in tagset)
 
 
-def update_project(conn, project_id, *, short_desc=None, full_md_text=None, tag_set=None):
-    """Update short_desc, full_md_text and/or tag_set on an existing
+def update_project(conn, project_id, *, short_desc=None, full_md_text=None, tag_set=None, address=None):
+    """Update short_desc, full_md_text, tag_set and/or address on an existing
     project row. Only the fields given (not None) are changed. tag_set must
     already be normalized (see normalize_tag_set). Changes to short_desc/
     tag_set are also logged to project_history."""
@@ -599,8 +603,11 @@ def update_project(conn, project_id, *, short_desc=None, full_md_text=None, tag_
     if tag_set is not None:
         fields.append("tag_set = ?")
         values.append(tag_set)
+    if address is not None:
+        fields.append("address = ?")
+        values.append(address)
 
-    assert fields, "Nothing to update - pass short_desc, full_md_text and/or tag_set"
+    assert fields, "Nothing to update - pass short_desc, full_md_text, tag_set and/or address"
 
     values.append(project_id)
     conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id = ?", values)
@@ -1063,7 +1070,7 @@ def clear_analysis_log(conn, file_path):
 def sync_project_from_files(conn, project_id):
     """Apply working/project_edit/<project_id>.md (full_md_text) and
     working/project_edit/<project_id>.json (every other updatable field:
-    short_desc, and tag_set as a list of tags that replaces the whole set -
+    short_desc, address, and tag_set as a list of tags that replaces the whole set -
     see normalize_tag_set) to the projects row - see PROJECT_EDIT_DIR above
     for the naming convention. Either file may be absent, and a field
     missing from the .json is left unchanged; at least one file must exist.
@@ -1084,13 +1091,13 @@ def sync_project_from_files(conn, project_id):
         with open(jsonpath, encoding="utf-8") as fh:
             fields = json.load(fh)
 
-    unknown = sorted(set(fields) - {"short_desc", "tag_set"})
-    assert not unknown, f"Unknown field(s) {unknown} in {jsonpath.name} - allowed: short_desc, tag_set"
+    unknown = sorted(set(fields) - {"short_desc", "address", "tag_set"})
+    assert not unknown, f"Unknown field(s) {unknown} in {jsonpath.name} - allowed: short_desc, address, tag_set"
 
     tag_set = normalize_tag_set(fields["tag_set"]) if "tag_set" in fields else None
 
     update_project(conn, project_id, short_desc=fields.get("short_desc"),
-                   full_md_text=full_md_text, tag_set=tag_set)
+                   full_md_text=full_md_text, tag_set=tag_set, address=fields.get("address"))
 
     if mdpath.exists():
         mdpath.unlink()
