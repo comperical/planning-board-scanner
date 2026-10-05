@@ -52,6 +52,16 @@ content-analyzed — blocked on the decode-to-disk step.**
   Castle, Newfields) — worth a follow-up pass once the `/media/`
   fetch-and-decode step is scripted or approved.
 
+## Scan notes (2026-10-05)
+
+- Headed session passed Cloudflare. `/meetings/recent` rows list every
+  `/media/{id}` for a meeting; the first link is the agenda, a later one is
+  minutes (7/21 minutes = `/media/21261`, 8/4 = `/media/21266`).
+  Several downloads in one `eval` with a 2.5 s gap worked (files saved
+  under odd names like `...-pdf.pdf` - rename via `ClaimDownload name=`).
+- The 9/15 "UPDATED" agenda is `/media/21451`. Hearing packets (up to 9
+  files per meeting) were skipped.
+
 ## Open items for later
 
 - Script (or get approval for) the base64-decode-to-file step so

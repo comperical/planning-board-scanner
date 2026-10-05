@@ -66,3 +66,12 @@ until it does (re-run, or take one `snapshot`). Then:
   navigable link) — every future scan of this town needs the same
   browser click-through via `/866/Planning-Board-Agendas-and-Minutes`,
   there's no `FetchUrl`-only shortcut.
+
+## Scan notes (2026-10-05)
+
+- ⚠️ The embedded widget on `/866/` did not render at all that day (the
+  `downloadFilesMenu-*` eval returned nothing, even after a snapshot).
+  **Fallback that works:** `goto https://pelhamnh.portal.civicclerk.com`
+  directly; the same `eval` over `[id^=downloadFilesMenu-]` lists upcoming
+  events (Coming Up) with ids. Past events need the portal's Past Events
+  view (not checked).

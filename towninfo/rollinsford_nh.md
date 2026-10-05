@@ -58,6 +58,12 @@ the second "Public Hearing Notices"). Planning Board folders:
   `[data-id]` and read `innerText` (file name, date, size). Subfolder ids
   are the `data-id` values. No agendas are posted for this board at all.
 
+## Scan notes (2026-10-05)
+
+- 2026 Drive folder still tops out at `RPB Mins 7.14. 2026 DRAFT.pdf`
+  (minutes lag a month or more). Files not yet in the DB: 1/6, 2/4, 3/3
+  (+ Non Public), 4/7, 6/2 - each needs the Drive click-through download.
+
 ## Open items for later
 
 - Haven't yet checked the **Site Review Documents** folder (likely the

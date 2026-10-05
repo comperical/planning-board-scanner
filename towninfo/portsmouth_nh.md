@@ -59,6 +59,20 @@ protection encountered.
   Portsmouth Blvd), wetland conditional use permits, retail-project site
   plan extension, school renovation
 
+## Scan notes (2026-10-05)
+
+- ⚠️ **Don't guess file URLs.** `files.portsmouthnh.gov` returns an HTML
+  "City of Portsmouth Notice" page (not a 404) for a wrong path, and
+  `FetchUrl` then fails its PDF check. The folder name does not always
+  match the file: the 3/26 minutes sit in the `4-16-2026+Meeting` folder.
+  Read exact links from the archive page with
+  `eval "() => [...new Set([...document.querySelectorAll('a[href*=\"files.portsmouthnh.gov/agendas/2026/Planning\"]')].map(a=>a.href))]"`.
+- Per meeting there are also `_pb_ln.pdf` (legal notice - lists every
+  application, good early signal), `_pb_as.pdf` (action sheet) and
+  `_lod-fof_combined_final.pdf`. Minutes (`_pb_min.pdf`) post about one
+  cycle later (7/16 and 9/17 minutes were not up on 10/5). Meetings now
+  start at 6:00 pm.
+
 ## Open questions / not yet checked
 
 - How far back the archive page's listing goes / whether it paginates.
