@@ -121,6 +121,9 @@ Playwright session to enumerate/navigate pages, then hand PDF URLs to plain
   the town's site, click a native download link:
   `playwright-cli -s=planscan eval "() => { const a = document.createElement('a'); a.href = '/media/21201'; a.download = ''; document.body.appendChild(a); a.click(); }"`
   The browser saves the file (real filename) to `working/playwright_output/`
+  only if the session was opened with
+  `--config=working/playwright_cli.config.json` (`{"outputDir": "working/playwright_output"}`).
+  Without it, downloads go to `.playwright-cli/`, which ClaimDownload can't read.
   - then `plan_entry.py ClaimDownload file=working/playwright_output/<f> dest=working/<town> [name=...]`
   checks it's a real PDF/.docx and moves it in, ready for `IngestPdfTool`.
   (Concord was previously listed here too; its 410s were an argument-

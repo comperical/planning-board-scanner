@@ -20,6 +20,8 @@ family as Rochester, Exeter, Rye, etc. No bot protection encountered.
 - **Minutes index**: `/node/214/minutes`, same pattern.
 - As of 2026-09-29 both indexes are just year links; rows are at
   `/node/214/agenda/{YYYY}` and `/node/214/minutes/{YYYY}`.
+- As of 2026-10-07, WebFetch gets a 403 on the listing pages, but the
+  `planscan` browser session loads them fine.
 - Static PDF path: `sites/g/files/vyhlif956/f/{agendas|minutes}/
   {filename}.pdf` — filenames hand-typed by staff, no fixed pattern.
 - Meetings monthly: 4th Wednesday, 7:00pm, "Macomber Room," 301

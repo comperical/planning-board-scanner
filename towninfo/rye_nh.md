@@ -1,6 +1,8 @@
 # Rye, NH — Planning Board Web Access
 
 > **Update 2026-09-21:** Agenda Center `ViewFile` URLs now return a Cloudflare 403 to plain `FetchUrl`. Use a native `<a download>` click in the headed `planscan` session + `ClaimDownload` (see PATTERNS.md "Browser-only downloads"). Scanned minutes OCR with merged words - keyword hit counts understate them.
+>
+> **Update 2026-10-07:** The Agenda Center lists all boards together, and row titles vary ("Planning Board Site Walk ...", "Technical Review Committee (TRC)", "Joint Select Board/Planning Board Workshop"). Filter by row text rather than trusting a WebFetch summary, which mislabeled Rules & Regs and TRC rows as Planning Board. TRC rows (e.g. 8/26 on 701 South Rd) carry real project review and should be scanned too.
 
 Investigated: 2026-09-12
 
