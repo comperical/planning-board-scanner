@@ -58,8 +58,7 @@ const TAG_SEL_KEY = "TagSelKey";
 const TRADE_SEL_KEY = "TradeSelKey";
 const SORT_SEL_KEY = "SortSelKey";
 
-// TESTING: default to Barnstead (town id 17) while building the history view; normally -1
-GENERIC_OPT_SELECT_MAP.set(TOWN_SEL_KEY, 17);
+GENERIC_OPT_SELECT_MAP.set(TOWN_SEL_KEY, -1);
 GENERIC_OPT_SELECT_MAP.set(TAG_SEL_KEY, "any");
 GENERIC_OPT_SELECT_MAP.set(TRADE_SEL_KEY, "any");
 GENERIC_OPT_SELECT_MAP.set(SORT_SEL_KEY, "latest_doc");

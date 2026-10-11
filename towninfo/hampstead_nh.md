@@ -17,8 +17,9 @@ PATTERNS.md) — no bot protection.
   embedded project detail in the title itself here, unlike
   Danville/Kensington.
 - Some meetings also link a Media/Video entry (`cloud.castus.tv`).
-- **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare) on
-  ViewFile URLs. Browser `<a download>` + `ClaimDownload` works. Rows can
+- **2026-09-24:** plain `FetchUrl` 403'd (Cloudflare) on ViewFile URLs;
+  **2026-10-09: plain `FetchUrl` works again** (try it first, fall back to
+  browser `<a download>` + `ClaimDownload`). Rows can
   be pulled without a snapshot by filtering `tr` elements whose enclosing
   `.listing` h2 matches /planning/i.
 - Meetings roughly 1st & 3rd Monday, but frequently skipped (none posted

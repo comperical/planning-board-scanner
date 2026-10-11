@@ -61,5 +61,7 @@ Center (see PATTERNS.md) — no bot protection.
 - **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare); browser
   `<a download>` + `ClaimDownload` works (saves as `{MMDDYYYY}.pdf`).
   2026-10-03: plain `FetchUrl` worked again - try it first.
-- No minutes posted in the Agenda Center section for 2026. Agendas go up
-  ~2 weeks ahead.
+- **Minutes ARE posted (checked 2026-10-10)**: most 2026 rows (through
+  8/12) have a Minutes link at `/AgendaCenter/ViewFile/Minutes/_{MMDDYYYY}-{id}`
+  (plain `FetchUrl` works; file saves with no extension). 8/5, 9/2, 9/9
+  and 10/7 have none yet. Agendas go up ~2 weeks ahead.
