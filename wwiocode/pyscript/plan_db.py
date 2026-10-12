@@ -50,7 +50,8 @@ UPSERT_PATH = WORK_DIR / "UPSERT.json"
 # tool in plan_entry.py / sync_project_from_files() below): to update
 # project <id>, write working/project_edit/<id>.md (the full_md_text field
 # - free-form markdown) and/or working/project_edit/<id>.json (every other
-# updatable field: {"short_desc": "...", "address": "...", "tag_set": [...]}),
+# updatable field: {"short_desc": "...", "address": "...", "status": "...",
+# "tag_set": [...]}),
 # then run the tool
 # to apply both to the DB. Either file may be omitted to leave that side
 # unchanged.
@@ -63,7 +64,22 @@ PROJECT_TAGS_PATH = WORK_DIR.parent / "PROJECT_TAGS.md"
 
 # Tag groups (the "### N. ..." sections of PROJECT_TAGS.md) that must have
 # exactly one tag on every tagged project.
-EXACTLY_ONE_TAG_GROUPS = {1: "sector", 4: "stage"}
+EXACTLY_ONE_TAG_GROUPS = {1: "sector"}
+
+# Allowed values for projects.status - where the project is in the planning
+# process, reflecting the latest document linked to it.
+PROJECT_STATUS = {
+    "concept":      "Conceptual consultation or design review; no formal application yet",
+    "filed":        "Formal application submitted or accepted, but no hearing held yet",
+    "in-review":    "Hearing open or continued, or under TRC or peer review",
+    "approved":     "Approved, possibly with conditions; no construction confirmed yet",
+    "extended":     "Approval or conditions deadline extended",
+    "construction": "Pre-construction meeting held or work underway",
+    "complete":     "Bond or surety released, or other sign the work is finished",
+    "denied":       "Board denied the application",
+    "withdrawn":    "Applicant withdrew the application",
+    "expired":      "Approval lapsed without an extension",
+}
 
 
 SCHEMA = """
@@ -144,18 +160,19 @@ CREATE TABLE IF NOT EXISTS projects (
     address             TEXT DEFAULT '',   -- location of the project, e.g. "150 Portsmouth Blvd"; '' = not found
     full_md_text        TEXT,              -- full markdown write-up: description, status, addresses, applicant, etc.
     tag_set             TEXT DEFAULT '',   -- comma-separated set of tags, e.g. "residential,multifamily"; '' = no tags
+    status              TEXT,              -- where the project is in the planning process, a PROJECT_STATUS key, e.g. "in-review"; NULL = not yet set
     created_at          TEXT               -- UTC timestamp, datetime('now'); NULL for rows created before this column existed
 );
 
--- One row per change to a project's short_desc or tag_set (written by
--- update_project), so a daily report can show what moved - e.g. a stage tag
+-- One row per change to a project's short_desc, tag_set or status (written
+-- by update_project), so a daily report can show what moved - e.g. status
 -- going in-review -> approved. full_md_text isn't tracked (too large; the
--- short_desc/tag_set change usually tells the story).
+-- short_desc/tag_set/status change usually tells the story).
 CREATE TABLE IF NOT EXISTS project_history (
     id                  INTEGER PRIMARY KEY,
     project_id          INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     changed_at          TEXT NOT NULL,     -- UTC timestamp, datetime('now')
-    field               TEXT NOT NULL,     -- "short_desc" or "tag_set"
+    field               TEXT NOT NULL,     -- "short_desc", "tag_set" or "status"
     old_value           TEXT,
     new_value           TEXT
 );
@@ -271,6 +288,8 @@ def _run_migrations(conn):
         conn.execute("ALTER TABLE projects ADD COLUMN created_at TEXT")
     if "address" not in cols:
         conn.execute("ALTER TABLE projects ADD COLUMN address TEXT DEFAULT ''")
+    if "status" not in cols:
+        conn.execute("ALTER TABLE projects ADD COLUMN status TEXT")
 
     cols = {row[1] for row in conn.execute("PRAGMA table_info(contact_info)")}
     if "company" not in cols:
@@ -570,22 +589,27 @@ def normalize_tag_set(tags, vocab=None):
     assert not unknown, f"Unknown tag(s) {unknown} - see {PROJECT_TAGS_PATH.name}"
 
     for groupnum, groupname in EXACTLY_ONE_TAG_GROUPS.items():
-        ingroup = sorted(t for t in tagset if vocab[t] == groupnum)
+        ingroup = sorted(t for t in tagset if vocab.get(t) == groupnum)
         assert len(ingroup) == 1, \
             f"Need exactly one {groupname} tag, got {ingroup or 'none'}"
 
     return ",".join(t for t in vocab if t in tagset)
 
 
-def update_project(conn, project_id, *, short_desc=None, full_md_text=None, tag_set=None, address=None):
-    """Update short_desc, full_md_text, tag_set and/or address on an existing
-    project row. Only the fields given (not None) are changed. tag_set must
-    already be normalized (see normalize_tag_set). Changes to short_desc/
-    tag_set are also logged to project_history."""
+def update_project(conn, project_id, *, short_desc=None, full_md_text=None, tag_set=None, address=None, status=None):
+    """Update short_desc, full_md_text, tag_set, address and/or status on an
+    existing project row. Only the fields given (not None) are changed.
+    tag_set must already be normalized (see normalize_tag_set); status must
+    be a PROJECT_STATUS key. Changes to short_desc/tag_set/status are also
+    logged to project_history."""
 
-    row = conn.execute("SELECT short_desc, tag_set FROM projects WHERE id = ?", (project_id,)).fetchone()
+    assert status is None or status in PROJECT_STATUS, \
+        f"Unknown status {status!r} - allowed: {', '.join(PROJECT_STATUS)}"
+
+    row = conn.execute("SELECT short_desc, tag_set, status FROM projects WHERE id = ?", (project_id,)).fetchone()
     assert row is not None, f"No project with id {project_id}"
-    for field, oldval, newval in (("short_desc", row[0], short_desc), ("tag_set", row[1], tag_set)):
+    for field, oldval, newval in (("short_desc", row[0], short_desc), ("tag_set", row[1], tag_set),
+                                  ("status", row[2], status)):
         if newval is not None and newval != (oldval or ""):
             conn.execute(
                 "INSERT INTO project_history (project_id, changed_at, field, old_value, new_value) "
@@ -606,8 +630,11 @@ def update_project(conn, project_id, *, short_desc=None, full_md_text=None, tag_
     if address is not None:
         fields.append("address = ?")
         values.append(address)
+    if status is not None:
+        fields.append("status = ?")
+        values.append(status)
 
-    assert fields, "Nothing to update - pass short_desc, full_md_text, tag_set and/or address"
+    assert fields, "Nothing to update - pass short_desc, full_md_text, tag_set, address and/or status"
 
     values.append(project_id)
     conn.execute(f"UPDATE projects SET {', '.join(fields)} WHERE id = ?", values)
@@ -1070,8 +1097,9 @@ def clear_analysis_log(conn, file_path):
 def sync_project_from_files(conn, project_id):
     """Apply working/project_edit/<project_id>.md (full_md_text) and
     working/project_edit/<project_id>.json (every other updatable field:
-    short_desc, address, and tag_set as a list of tags that replaces the whole set -
-    see normalize_tag_set) to the projects row - see PROJECT_EDIT_DIR above
+    short_desc, address, status (a PROJECT_STATUS key), and tag_set as a
+    list of tags that replaces the whole set - see normalize_tag_set) to the
+    projects row - see PROJECT_EDIT_DIR above
     for the naming convention. Either file may be absent, and a field
     missing from the .json is left unchanged; at least one file must exist.
     Everything is validated before anything is written. Once applied,
@@ -1091,13 +1119,17 @@ def sync_project_from_files(conn, project_id):
         with open(jsonpath, encoding="utf-8") as fh:
             fields = json.load(fh)
 
-    unknown = sorted(set(fields) - {"short_desc", "address", "tag_set"})
-    assert not unknown, f"Unknown field(s) {unknown} in {jsonpath.name} - allowed: short_desc, address, tag_set"
+    unknown = sorted(set(fields) - {"short_desc", "address", "tag_set", "status"})
+    assert not unknown, f"Unknown field(s) {unknown} in {jsonpath.name} - allowed: short_desc, address, tag_set, status"
 
     tag_set = normalize_tag_set(fields["tag_set"]) if "tag_set" in fields else None
 
+    status = fields.get("status")
+    assert status is None or status in PROJECT_STATUS, \
+        f"Unknown status {status!r} in {jsonpath.name} - allowed: {', '.join(PROJECT_STATUS)}"
+
     update_project(conn, project_id, short_desc=fields.get("short_desc"),
-                   full_md_text=full_md_text, tag_set=tag_set, address=fields.get("address"))
+                   full_md_text=full_md_text, tag_set=tag_set, address=fields.get("address"), status=status)
 
     if mdpath.exists():
         mdpath.unlink()

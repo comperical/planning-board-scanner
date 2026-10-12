@@ -256,9 +256,10 @@ class ApplyProjectEditTool:
     """Apply working/project_edit/<project_id>.md (the full_md_text field -
     free-form markdown) and/or working/project_edit/<project_id>.json
     (every other updatable field: {"short_desc": "...", "address": "...",
-    "tag_set": [...]} -
-    tag_set replaces the project's whole tag set and is validated against
-    PROJECT_TAGS.md: known tags only, exactly one sector and one stage tag)
+    "status": "...", "tag_set": [...]} -
+    status must be a PROJECT_STATUS key in plan_db.py; tag_set replaces the
+    project's whole tag set and is validated against PROJECT_TAGS.md: known
+    tags only, exactly one sector tag)
     to an existing projects row. Either file may be absent (that side is
     left unchanged); at least one must exist. Once applied, both files are
     deleted - the DB is the source of truth after that point, so
@@ -710,7 +711,7 @@ class DailyReportTool:
     step of the daily-update skill: every scan pass (FAILED/unclosed ones
     first), documents newly discovered by those passes and whether they've
     been analyzed, projects created, projects whose tags/short_desc changed
-    (e.g. a stage tag moving in-review -> approved), contact searches
+    (e.g. status moving in-review -> approved), contact searches
     (contact_search_log, with the none_found/skipped ones listed), and
     what's still outstanding (unanalyzed documents, towns still due for a
     scan, projects due for a contact search).
@@ -765,14 +766,14 @@ class DailyReportTool:
 
         newprojects = conn.execute(
             """
-            SELECT p.id, t.slug, COALESCE(p.short_desc, ''), COALESCE(p.tag_set, '')
+            SELECT p.id, t.slug, COALESCE(p.short_desc, ''), COALESCE(p.tag_set, ''), COALESCE(p.status, '?')
             FROM projects p JOIN town t ON p.town_id = t.id
             WHERE p.created_at >= datetime('now', ?)
             ORDER BY t.slug, p.id
             """, (since,)).fetchall()
         print(f"## New projects: {len(newprojects)}")
-        for project_id, slug, desc, tags in newprojects:
-            print(f"- #{project_id} {slug}: {desc}  [{tags}]")
+        for project_id, slug, desc, tags, status in newprojects:
+            print(f"- #{project_id} {slug}: {desc}  ({status})  [{tags}]")
         print()
 
         # First and last value per (project, field) within the window, for
@@ -802,6 +803,8 @@ class DailyReportTool:
                 newset = set(filter(None, (newval or "").split(",")))
                 diff = " ".join([f"+{t}" for t in sorted(newset - oldset)] + [f"-{t}" for t in sorted(oldset - newset)])
                 print(f"- #{project_id} {slug}: {desc}  tags {diff}")
+            elif field == "status":
+                print(f"- #{project_id} {slug}: {desc}  status {oldval or '(none)'} -> {newval}")
             else:
                 print(f"- #{project_id} {slug}: short_desc was \"{oldval}\"")
         print()
@@ -943,7 +946,7 @@ class DbStatusTool:
                 """
                 SELECT id, short_desc, length(full_md_text),
                        (SELECT COUNT(*) FROM project_documents WHERE project_id = projects.id),
-                       tag_set
+                       tag_set, status
                 FROM projects WHERE town_id = ? ORDER BY id
                 """,
                 (town_id,),
@@ -951,9 +954,10 @@ class DbStatusTool:
 
             if projrows:
                 print(f"  --- {len(projrows)} project(s) ---")
-                for project_id, short_desc, mdlen, doccount, tag_set in projrows:
+                for project_id, short_desc, mdlen, doccount, tag_set, status in projrows:
                     print(f"  #{project_id:<4} {short_desc or '(no short_desc)':60}  "
-                          f"md_chars={mdlen or 0}  linked_docs={doccount}  tags={tag_set or '(untagged)'}")
+                          f"md_chars={mdlen or 0}  linked_docs={doccount}  status={status or '(none)'}  "
+                          f"tags={tag_set or '(untagged)'}")
 
 
 class UpsertTool:

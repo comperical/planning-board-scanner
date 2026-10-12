@@ -7,7 +7,7 @@ the Projects page can sort and filter leads for trades pros.
 ## Format
 
 - `tag_set` is a comma-separated set of tags, e.g.
-  `residential,multifamily,new-construction,approved,large`.
+  `residential,multifamily,new-construction,large`.
 - Tags are lowercase, hyphenated, and never contain commas or spaces.
 - No duplicates; order doesn't matter (write them in the group order below
   for readability).
@@ -16,15 +16,17 @@ the Projects page can sort and filter leads for trades pros.
 - This file is machine-read: `ApplyProjectEdit` (via `load_tag_vocabulary`
   in `plan_db.py`) takes the vocabulary from the backticked first-column
   entries of the tables under each `### <N>. ...` heading, and requires
-  exactly one tag from group 1 (sector) and group 4 (stage). Keep that
-  table layout when editing.
+  exactly one tag from group 1 (sector). Keep that table layout when
+  editing.
+- Where a project is in the planning process is **not** a tag: it lives in
+  the `projects.status` column.
 
 ## Tag groups
 
-A project typically gets 4-8 tags total. Groups 1 (one sector) and 4 (one
-stage) apply to every project; group 3 to every project with physical work
-(a `non-construction` project may have none); group 2 only to projects
-that include housing; groups 5 and 6 only when the flag/trade applies.
+A project typically gets 3-7 tags total. Group 1 (one sector) applies to
+every project; group 3 to every project with physical work (a
+`non-construction` project may have none); group 2 only to projects that
+include housing; groups 4 and 5 only when the flag/trade applies.
 
 ### 1. Sector - who/what the project is for
 
@@ -76,23 +78,7 @@ teardown-and-rebuild is `demolition,new-construction`.
 | `accessory` | Garages, decks, pools, sheds, driveways, stone-wall/driveway cuts | #27 in-ground pool; #94 105 Spur Rd garage + deck; #81 175 South Rd driveway |
 | `landscaping` | Plantings, buffer restoration, tree work, landscape regrading | #99 224 Cate St; #110 26 Wadleigh St; #102 361 Hanover St |
 
-### 4. Stage - where the project is in the approval process
-
-Exactly one per project, reflecting the **latest** document linked to it.
-These go stale as projects move forward - update the stage tag whenever a
-new analysis pass links a later document to the project.
-
-| Tag | Meaning | Examples |
-|---|---|---|
-| `concept` | Design review, preliminary/conceptual consultation - no formal application yet | #116 6 Airfield Dr; #115 14 Elm St; #29 Birch Rd |
-| `in-review` | Formal application filed, hearing pending or continued, TRC review | #82 Liberty Common; #105 Exeter Country Club; #92 77 Long Hill Rd |
-| `approved` | Board approval granted (possibly with conditions); construction not yet confirmed | #51 90 Wakefield St; #85 32 Nute Rd; #111 559 Winnacunnet Rd |
-| `extension` | Approval extended because the project hasn't started or met conditions | #50 Farmington Rd; #108 73 Winter St; #23 EV charging station |
-| `construction` | Pre-construction meeting held or construction reported underway | #113 5R Falcone Circle; #11 Airfield Dr Phase I |
-| `complete` | Surety/bond release or other sign that the work is finished | #68 29 Wadleigh Rd; #87 18 Sterling Dr; #49 Aldi's |
-| `withdrawn` | Application withdrawn or denied | #19 94 Langdon / 98 Cornwall St |
-
-### 5. Lead-quality flags - optional
+### 4. Lead-quality flags - optional
 
 Add only when the flag applies.
 
@@ -101,7 +87,7 @@ Add only when the flag applies.
 | `large` | 20+ dwelling units, or 20,000+ SF of building, or a major public/utility job | #82 Liberty Common (140 units); #55 2 x 162,000 SF warehouses; #83 72,300 SF self-storage; #98 1-mile road rebuild |
 | `non-construction` | Purely administrative - little or no trades work expected (rezoning, covenants, escrow payments, rental/use permits, signage) | #22 375 Banfield Rd rezoning; #26 restrictive covenant; #10-#13 escrow payments; #70 short-term rental CUP; #16 billboard |
 
-### 6. Trades - specific scope the write-up mentions
+### 5. Trades - specific scope the write-up mentions
 
 Tag a trade only when the documents actually mention that scope (a septic
 design, a new well, a cistern, blasting, a dock...). Don't infer it: trades
@@ -131,9 +117,9 @@ tag.
 
 | Project | `tag_set` |
 |---|---|
-| #82 Liberty Common, 140-unit condo development, hearing continued | `residential,multifamily,condo,new-construction,subdivision,road-infrastructure,in-review,large` |
-| #111 559 Winnacunnet Rd, teardown + new single-family home, approved | `residential,single-family,demolition,new-construction,approved` |
-| #113 5R Falcone Circle, water tank replacement, preconstruction held | `utility,demolition,new-construction,construction` |
-| #92 77 Long Hill Rd, church parking lot rebuild, TRC review | `institutional,sitework,in-review,paving` |
-| Rural 6-lot subdivision on septic and wells, new road with fire cistern, approved | `residential,single-family,subdivision,road-infrastructure,approved,septic,well,paving,tree-clearing,fire-protection` |
-| #22 375 Banfield Rd rezoning | `commercial,in-review,non-construction` |
+| #82 Liberty Common, 140-unit condo development, hearing continued | `residential,multifamily,condo,new-construction,subdivision,road-infrastructure,large` |
+| #111 559 Winnacunnet Rd, teardown + new single-family home, approved | `residential,single-family,demolition,new-construction` |
+| #113 5R Falcone Circle, water tank replacement, preconstruction held | `utility,demolition,new-construction` |
+| #92 77 Long Hill Rd, church parking lot rebuild, TRC review | `institutional,sitework,paving` |
+| Rural 6-lot subdivision on septic and wells, new road with fire cistern, approved | `residential,single-family,subdivision,road-infrastructure,septic,well,paving,tree-clearing,fire-protection` |
+| #22 375 Banfield Rd rezoning | `commercial,non-construction` |

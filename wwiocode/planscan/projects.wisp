@@ -34,6 +34,19 @@
 .project-md ul { padding-left: 20px; }
 .project-md li { margin-bottom: 4px; }
 
+/* Filter/sort controls: label column only as wide as its longest label */
+.control-table td:first-child {
+	width: 1%;
+	white-space: nowrap;
+}
+
+.status-boxes label {
+	display: inline-block;
+	white-space: nowrap;
+	margin: 2px 8px 2px 0;
+	cursor: pointer;
+}
+
 .search-term {
 	width: 45%;
 	text-align: center;
@@ -100,6 +113,79 @@ function getMapIconHtml(item) {
 		onclick="event.stopPropagation()"><i class="fa-solid fa-map-location-dot"></i></a>`;
 }
 
+// projects.status (PROJECT_STATUS in plan_db.py) -> [Font Awesome icon, color, meaning]
+const STATUS_ICONS = new Map([
+	["concept",      ["fa-lightbulb",          "#d4a017", "Conceptual consultation or design review; no formal application yet"]],
+	["filed",        ["fa-file-import",        "#5a7fa8", "Formal application submitted, no hearing held yet"]],
+	["in-review",    ["fa-scale-balanced",     "#2a6fdb", "Hearing open or continued, or under TRC or peer review"]],
+	["approved",     ["fa-circle-check",       "#2e9e44", "Approved, possibly with conditions; no construction confirmed yet"]],
+	["extended",     ["fa-hourglass-half",     "#c77c11", "Approval or conditions deadline extended"]],
+	["construction", ["fa-person-digging",     "#e06c00", "Pre-construction meeting held or work underway"]],
+	["complete",     ["fa-flag-checkered",     "#555555", "Bond or surety released, or other sign the work is finished"]],
+	["denied",       ["fa-ban",                "#c62828", "Board denied the application"]],
+	["withdrawn",    ["fa-arrow-rotate-left",  "#888888", "Applicant withdrew the application"]],
+	["expired",      ["fa-calendar-xmark",     "#888888", "Approval lapsed without an extension"]]
+]);
+
+function getStatusIconHtml(item) {
+	const status = item.getStatus() || "";
+	if(!STATUS_ICONS.has(status)) { return status == "" ? "" : escapeHtml(status); }
+	const [icon, color, meaning] = STATUS_ICONS.get(status);
+	return `<i class="fa-solid ${icon}" style="color: ${color}" title="${escapeHtml(`${status}: ${meaning}`)}"></i>`;
+}
+
+// Status filter: the set of checked status boxes - STATUS_ICONS keys, plus
+// "none" for projects with no (or an unrecognized) status. All checked to start.
+const STATUS_FILTER = new Set([...STATUS_ICONS.keys(), "none"]);
+
+function getStatusKey(item) {
+	const status = item.getStatus() || "";
+	return STATUS_ICONS.has(status) ? status : "none";
+}
+
+function matchesStatusFilter(item) {
+	return STATUS_FILTER.has(getStatusKey(item));
+}
+
+function clearStatusFilter() {
+	STATUS_FILTER.clear();
+	redisplay();
+}
+
+function toggleStatusFilter(status, checked) {
+	if(checked) { STATUS_FILTER.add(status); } else { STATUS_FILTER.delete(status); }
+	redisplay();
+}
+
+// One checkbox per status (icon + project count), in STATUS_ICONS order; the
+// "(none)" box only appears if some project has no status
+function getStatusCheckboxHtml() {
+
+	const counts = new Map();
+	W.getItemList(MAIN_TABLE).forEach(function(item) {
+		const key = getStatusKey(item);
+		counts.set(key, (counts.get(key) || 0) + 1);
+	});
+
+	const boxlist = [...STATUS_ICONS.entries()].map(function([status, [icon, color, meaning]]) {
+		return `<label title="${escapeHtml(`${status}: ${meaning}`)}">
+			<input type="checkbox" ${STATUS_FILTER.has(status) ? "checked" : ""}
+				onchange="javascript:toggleStatusFilter('${status}', this.checked)"/>
+			<i class="fa-solid ${icon}" style="color: ${color}"></i> ${counts.get(status) || 0}</label>`;
+	});
+
+	if(counts.has("none")) {
+		boxlist.push(`<label title="No status set">
+			<input type="checkbox" ${STATUS_FILTER.has("none") ? "checked" : ""}
+				onchange="javascript:toggleStatusFilter('none', this.checked)"/>
+			(none) ${counts.get("none")}</label>`);
+	}
+
+	// Two lines: the first half of the statuses, then the rest (plus "(none)")
+	const half = Math.ceil(STATUS_ICONS.size / 2);
+	return `<div class="status-boxes">${boxlist.slice(0, half).join("")}<br/>${boxlist.slice(half).join("")}</div>`;
+}
+
 function getTownNameMap() {
 	return PSUTIL.buildGenericMap(W.getItemList('town'),
 		town => town.getId(), town => `${town.getName()}, ${town.getState()}`);
@@ -136,7 +222,7 @@ function matchesTagFilter(item, tagtrg) {
 
 // Trade filter: expands each trade into the tag combinations that imply
 // work for it. A project matches a trade if it has ALL the tags of ANY one
-// clause. Explicit trade tags (PROJECT_TAGS.md group 6) are listed first;
+// clause. Explicit trade tags (PROJECT_TAGS.md group 5) are listed first;
 // the rest is inferred from sector/housing/work-type tags.
 const TRADE_RULES = [
 	["excavation", "Excavation / Earthwork", [["excavation"], ["sitework"], ["subdivision"], ["road-infrastructure"],
@@ -481,6 +567,7 @@ function getEditPageInfo() {
 	<td class="left-align">${item.getAddress() || ""}</td>
 	<td><a href="javascript:U.genericEditTextField(MAIN_TABLE, 'address', EDIT_STUDY_ITEM)"><img src="/u/shared/image/edit.png" height="18"></a></td>
 	</tr>
+	<tr><td>Status</td><td class="left-align">${getStatusIconHtml(item)} ${escapeHtml(item.getStatus() || "(none)")}</td><td></td></tr>
 	<tr><td>#Docs</td><td>${doclinklist.length}</td><td></td></tr>
 	<tr><td>Latest Doc</td><td>${latest || "?"}</td><td></td></tr>
 	<tr><td>Tags</td><td class="left-align">${getTagList(item).join(", ") || "(untagged)"}</td><td></td></tr>
@@ -584,7 +671,7 @@ function getUiControlTable() {
 	const towntrg = getSelectedTownId();
 
 	return `
-		<table class="basic-table" width="50%">
+		<table class="basic-table control-table" width="50%">
 		<tr>
 		<td>Search</td>
 		<td class="search-term">${escapeHtml(SEARCH_TEXT)}</td>
@@ -595,6 +682,11 @@ function getUiControlTable() {
 		<tr>
 		<td>Town</td>
 		<td colspan="2">${townsel}</td>
+		</tr>
+		<tr>
+		<td>Status</td>
+		<td>${getStatusCheckboxHtml()}</td>
+		<td width="1%"><a href="javascript:clearStatusFilter()" title="Uncheck all statuses" aria-label="Uncheck all statuses"><i class="fa-solid fa-eraser"></i></a></td>
 		</tr>
 		<tr>
 		<td>Tag</td>
@@ -622,7 +714,7 @@ function getUiControlTable() {
 	`;
 }
 
-// Projects matching the current text/town/tag/trade/date filters, in the current sort
+// Projects matching the current text/town/status/tag/trade/date filters, in the current sort
 // order - what the main listing shows, and what copySelection copies
 function getSelectedProjects(docmap) {
 
@@ -634,6 +726,7 @@ function getSelectedProjects(docmap) {
 
 	return W.getItemList(MAIN_TABLE)
 		.filter(item => towntrg == -1 || item.getTownId() == towntrg)
+		.filter(item => matchesStatusFilter(item))
 		.filter(item => matchesTagFilter(item, tagtrg))
 		.filter(item => matchesTradeFilter(item, tradetrg))
 		.filter(item => matchesTextSearch(item))
@@ -672,7 +765,8 @@ function getMainPageInfo() {
 		<table class="basic-table" width="95%">
 		<tr>
 		<th width="12%">Town</th>
-		<th width="3%"></th>
+		<th width="3%">Map</th>
+		<th width="3%">Status</th>
 		<th>Basic Info</th>
 		<th width="18%">Tags</th>
 		${towntrg == -1 ? `<th width="10%">Last Mention</th>` : `<th width="8%">#Contacts</th>`}
@@ -688,6 +782,7 @@ function getMainPageInfo() {
 			<tr class="editable" onclick="javascript:editStudyItem(${item.getId()})">
 			<td>${getTownName(item.getTownId())}</td>
 			<td>${getMapIconHtml(item)}</td>
+			<td>${getStatusIconHtml(item)}</td>
 			<td class="left-align">${item.getShortDesc() || "(no short_desc)"}</td>
 			<td class="left-align">${getTagList(item).join(", ")}</td>
 			<td>${towntrg == -1 ? getShortDateDisplay(getLatestDocDate(doclist)) : (contactcountmap.get(item.getId()) || "")}</td>

@@ -83,8 +83,9 @@ report.
 Run the analyze-planning-file loop until `NextToAnalyze` reports nothing
 left. **The skill's default cap of 4 documents does not apply here** -
 daily volume is normally 5-15 documents; analyze them all. Keep the usual
-rules: check existing projects before creating, tag every project, update
-stage tags when a document moves a project forward, `LinkProject` with
+rules: check existing projects before creating, tag every project, set
+`status` on every project and update it when a document moves a project
+forward, `LinkProject` with
 `page=`, and always `LogAnalysis`.
 
 ## 3. Find contacts for projects that have none
