@@ -16,6 +16,13 @@ protection.
   "Quorum - Public Information Session" — filter for "Regular Meeting" to
   get substantive case-review agendas.
 
+## Scan notes (2026-10-15)
+
+- Minutes: `/AgendaCenter/ViewFile/Minutes/_MMDDYYYY-NNNN` - posted weeks
+  late; check every recent row's Minutes link. `FetchUrl dest=` saves them
+  with no `.pdf` extension (e.g. `_10062026-3225`); `IngestPdfTool` handles
+  that fine.
+
 ## Document content
 
 - **Agenda PDF** (Sept 1, 2026, "Regular Planning Board Meeting," 9.4KB,

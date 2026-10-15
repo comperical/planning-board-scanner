@@ -64,6 +64,15 @@ the second "Public Hearing Notices"). Planning Board folders:
   (minutes lag a month or more). Files not yet in the DB: 1/6, 2/4, 3/3
   (+ Non Public), 4/7, 6/2 - each needs the Drive click-through download.
 
+## Scan notes (2026-10-15)
+
+- **No click-through needed:** `FetchUrl "target=https://drive.google.com/uc?export=download&id=<data-id>" dest=working/rollinsford_nh`
+  downloads a Drive file directly under its real name (quote the arg - the
+  `&` otherwise breaks the permission match). Works for PDFs and .docx.
+- Backlog 1/6-6/2 minutes now ingested; new 9.1.2026 minutes posted 10/13.
+- Public Hearing Notices folder is now in use: `NOTICE OF MEETING
+  10.6.2026.docx` (posted 9/24).
+
 ## Open items for later
 
 - Haven't yet checked the **Site Review Documents** folder (likely the

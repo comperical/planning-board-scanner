@@ -4,6 +4,8 @@
 >
 > **Update 2026-09-27:** A third **"Meeting Minutes"** tab appears once minutes are posted (PB minutes ~3 weeks after the meeting; TRC per-site review minutes show up there too). Download flow that keeps clean names: `FetchUrl target=<TempFiles URL>` (no `dest=`, lands in `working/TARGET.pdf`), then `ClaimDownload file=working/TARGET.pdf dest=working/dover_nh name=<clean name>`. Temp filenames can carry a `-2` suffix or a space instead of `_` - always rename.
 
+> **Update 2026-10-15:** Shortcuts. Meeting ids: on the listing page, `eval` `jQuery(document.querySelector('tr[data-uid]').closest('[data-role=grid]')).data('kendoGrid').dataItem(row).doc_id` per row, then `goto /Tabs/Index/{doc_id}/public/1/deptnum/0/cab/Public_Meetings` directly. To list every file on all tabs at once, `eval` an async loop that clicks each `[role=tab]` (1.5 s wait) and then reads `td[role=gridcell]` texts ending `.pdf`. Click a file by `getByRole('gridcell', { name: '<file>' })` after switching to its tab.
+
 Investigated: 2026-09-12
 
 Platform: **Treeno** document-management system (see PATTERNS.md), not

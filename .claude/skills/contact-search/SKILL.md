@@ -31,7 +31,10 @@ are skipped by default; pass `include_noncon=true` only if asked.
 
 ## 2. Pull out the names
 
-Read the project's write-up and linked documents:
+Read the project's write-up and linked documents. Write each query
+(one statement per file) to `working/QUERY.sql` with the Write tool, then
+run `wwiocode/pyscript/plan_entry.py RunQuery` (read-only; don't call
+`sqlite3` directly):
 
 ```sql
 SELECT full_md_text FROM projects WHERE id = <id>;

@@ -30,9 +30,8 @@ scanning anything new, so today's report isn't mixed with leftovers.
 Also check `working/project_edit/` for leftover `.md`/`.json` files from an
 interrupted `ApplyProjectEdit` - finish applying them.
 
-The browser session is opened lazily in step 1 only when a town needs it
-(`playwright-cli -s=planscan list` first; open headed for Cloudflare towns -
-kingston, madbury, brentwood, rochester - see their towninfo files).
+The browser session is opened (headed) in step 1 by the first
+`scan-single-town` agent and left open for the following towns.
 
 ## 1. Scan today's share of towns
 
@@ -50,33 +49,33 @@ short mid-run.
 Also note any "towninfo write-up(s) with no town row" it lists - those are
 new towns that have never been scanned; include them.
 
-For each town in the list, in order:
+For each town in the list, in order, **one at a time** (never in
+parallel - they share the `planscan` browser session and the DB), launch
+the **`scan-single-town`** agent (Agent tool,
+`subagent_type: "scan-single-town"`) with the prompt `Scan town <slug>`.
+It runs in a fresh context: reads the towninfo write-up, opens/reuses the
+browser session, downloads and ingests new files, fixes towninfo if the
+site changed, and opens and closes the scan log pass itself. Don't do the
+scan work yourself in the main context.
 
-1. `StartScanLog town=<slug>` - note the scan_id.
-2. Read `towninfo/<slug>.md` (and `towninfo/PATTERNS.md` for its platform)
-   - it has the listing URL and quirks. The previous scan's notes (shown in
-   `DailyReport` / `scan_log.wisp`) say what was newest last time and what
-   meeting is expected next.
-3. Check the listing for anything not already in the DB: agendas, minutes,
-   and packets newer than the town's latest `doc_date`, plus older items
-   that have appeared since (minutes are often posted weeks late). Use
-   `DbStatus town=<slug>` if unsure what's already registered.
-4. Download each new file into `working/<slug>/` (`FetchUrl dest=`, or the
-   `ClaimDownload` route for Cloudflare towns), then
-   `IngestPdfTool pdf=... source_url=... date=YYYY-MM-DD scan_id=<id>`.
-5. If the site's layout or URLs differ from what towninfo says, fix the
-   towninfo file now.
-6. `EndScanLog scan_id=<id> notes="..."` - what's newest on the site, what
-   was downloaded, and what's expected next (e.g. "latest agenda 9/17
-   (have), 1 new: 9/17 minutes. Next expected: 10/1 agenda").
+It replies with a short block:
 
-**If a town can't be checked** (site down, bot block that headed mode
-doesn't clear, archive moved and can't be found in a few minutes): don't
-sink time into it. Close the pass with notes starting `FAILED:` -
-`EndScanLog scan_id=<id> notes="FAILED: <reason>"` - and move on.
-`NextToScan` ignores FAILED passes, so the town is retried tomorrow. Never
-leave a pass without an `EndScanLog`; unclosed passes are flagged in the
-report.
+```
+town: <slug>  scan_id: <id>  status: ok|FAILED
+new docs: <n> (...)
+towninfo updated: no | yes - ...
+notes: ...
+```
+
+Keep these blocks - they feed the report highlights and final counts.
+
+**Safety net:** if an agent errors out, or returns without a `scan_id` /
+status (so its pass may be unclosed), run `DailyReport` - it marks
+unclosed passes `UNCLOSED` with their scan_id - and close the town's pass
+with
+`EndScanLog scan_id=<id> notes="FAILED: scan agent did not finish"`, then
+move on to the next town. `NextToScan` ignores FAILED passes, so the town
+is retried tomorrow. Never leave a pass without an `EndScanLog`.
 
 ## 2. Analyze everything new
 

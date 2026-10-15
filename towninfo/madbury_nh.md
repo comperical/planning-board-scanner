@@ -39,6 +39,13 @@ step.**
   Court" draft ordinance) suggest active zoning-policy work worth a
   follow-up pass once the base64-decode tooling exists.
 
+## Scan notes (2026-10-15)
+
+- Best listing: `/meetings/recent` (same as Kingston) - each PB row lists
+  every `/media/{id}` for that meeting; minutes are added to the row weeks
+  later (9/16 minutes = `/media/3391`). Upcoming meetings: `/planning-board`
+  hub links `/planning-board/meeting/planning-board-{N}` (24 = Oct 21).
+
 ## Open items for later
 
 - Needs the base64-decode-to-file step (see PATTERNS.md TODOs) to
