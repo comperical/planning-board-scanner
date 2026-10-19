@@ -61,6 +61,8 @@ Center (see PATTERNS.md) — no bot protection.
 - **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare); browser
   `<a download>` + `ClaimDownload` works (saves as `{MMDDYYYY}.pdf`).
   2026-10-03: plain `FetchUrl` worked again - try it first.
+- 2026-10-16: FetchUrl worked; newest row title is "Planning Board Agenda
+  and Materials" (10/14, id 1305), file saves as `10142026.pdf`.
 - **Minutes ARE posted (checked 2026-10-10)**: most 2026 rows (through
   8/12) have a Minutes link at `/AgendaCenter/ViewFile/Minutes/_{MMDDYYYY}-{id}`
   (plain `FetchUrl` works; file saves with no extension). 8/5, 9/2, 9/9

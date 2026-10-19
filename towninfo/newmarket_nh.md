@@ -2,6 +2,8 @@
 
 > **Update 2026-09-21 - better method:** skip the portal UI. From any `newmarketnh.portal.civicclerk.com` page, in-page `fetch('https://newmarketnh.api.civicclerk.com/v1/Events?$filter=startDateTime ge 2026-07-01T00:00:00Z&$orderby=startDateTime desc')` (CORS-open) lists events with `publishedFiles` (type + fileId). Download each via in-page `fetch(.../v1/Meetings/GetMeetingFileStream(fileId={id},plainText=false))` -> blob -> `<a download>` click -> `ClaimDownload`. The portal's home feed only shows from the current month on.
 
+> **Update 2026-10-15:** Events API needs `$filter` URL-encoded via encodeURIComponent and returns ~15 rows max, so bound with `startDateTime ge X and startDateTime lt Y`. From Sept 2026 the PB events are named "Planning Board Meeting" (and "Planning Board Workshop") and had NO publishedFiles/agenda as of 10/15 (video only: 9/8, 10/13); earlier ones were named "Planning Board". Playwright download sanitizes filenames (underscores -> hyphens, e.g. 2026-07-14-PB-Agenda.pdf); use ClaimDownload name= to rename. Quote source_url= args containing parentheses.
+
 Investigated: 2026-09-12
 
 Platform: **CivicClerk** SPA portal (see PATTERNS.md), a different

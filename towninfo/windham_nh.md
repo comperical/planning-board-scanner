@@ -16,7 +16,8 @@ standard CivicPlus Agenda Center (see PATTERNS.md) — no bot protection.
 - The Planning Board section also carries subcommittee rows (Growth
   Management, CIP) - skip them. Site-walk rows can point at the same file
   twice (9/2/2026: `-3028` and `-3029` were byte-identical).
-- No minutes posted since 7/15/2026 (agenda-only lately).
+- Minutes posted through 7/15/2026 (checked 2026-10-16); none for Aug-Oct
+  yet. Minutes exist back to 1/7/2026 but are not ingested in DB.
 - **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare);
   browser `<a download>` + `ClaimDownload` works.
 

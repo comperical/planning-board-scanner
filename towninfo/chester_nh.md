@@ -19,6 +19,10 @@ Wednesday). Platform: standard CivicPlus Agenda Center (see PATTERNS.md)
 - Meetings: 1st, 3rd, sometimes 4th Wednesday, 7pm, Main Conference Room,
   Municipal Complex, 84 Chester Street.
 
+- Confirmed 2026-10-16: plain `FetchUrl` on ViewFile still works (no
+  Cloudflare). Minutes files save as `_{MMDDYYYY}-{id}` (no extension, PDF);
+  agendas as `MM-DD-YY  PB Draft Agenda.pdf`.
+
 ## Document content
 
 - **Agenda PDF** (Sept 9, 2026, 340KB): real project detail —

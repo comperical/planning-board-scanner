@@ -22,6 +22,12 @@ protection.
 - Meetings monthly, 2nd Thursday, 7pm. Some months add an extra "Work
   Session" agenda.
 
+- `FetchUrl` works directly on `/AgendaCenter/ViewFile/Agenda/{id}` and
+  `/AgendaCenter/ViewFile/Minutes/{id}` (verified 2026-10-16). Minutes save
+  under the bare id name (e.g. `_06112026-174`, no extension, is a PDF).
+- Agendas & minutes before 2025 are in Document Center
+  `/DocumentCenter/Index/95`; 2025 is via the year link on Planning-Board-7.
+
 ## Document content
 
 - **Agenda PDF** (Sept 10, 2026, 179KB): light — `PdfKeywordScan` found 1

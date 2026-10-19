@@ -29,6 +29,13 @@ this project where that's the case. No bot protection.
   - `working/hampton_falls_nh/_06232026-147` (Jun 23, 2026 minutes, no
     extension — is actually a .docx, rename before use)
 
+## Download tip
+
+- `FetchUrl` on `/AgendaCenter/ViewFile/{Agenda|Minutes}/_MMDDYYYY-ID dest=working/hampton_falls_nh`
+  works (no Cloudflare) but saves with no extension. Rename without `mv` via
+  `ClaimDownload file=<that path> dest=working/hampton_falls_nh name=YYYY.MM.DD_PB_Minutes.docx`.
+- Listing (2026-10-16) only shows Jan-Sep 2026; Jan-May 2026 items are not in the DB.
+
 ## Open items for later
 
 - Confirm whether *all* entries in this town's Agenda Center are `.docx`,
