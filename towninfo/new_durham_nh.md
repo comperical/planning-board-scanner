@@ -7,7 +7,7 @@ PATTERNS.md). No bot protection.
 
 ## Platform notes
 
-- Main site: `https://www.newdurhamnh.us`. Town-wide agendas page (all
+- Main site: `https://www.newdurhamnh.us` (as of 2026-10-20 redirects to `newdurhamnh.gov`; `/agendas` path unchanged). Town-wide agendas page (all
   boards mixed): `/agendas` — each entry shows a board heading, date/
   time, and three links: **View Agenda** (HTML on `towncloud.io`),
   **Agenda PDF**, **Packet PDF**.

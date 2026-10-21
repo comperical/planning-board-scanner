@@ -21,6 +21,13 @@ Platform: node-based CivicPlus (see PATTERNS.md). No bot protection.
   `-0`), "Planning Board Agenda" (`-agenda-0`) all appear for what are
   presumably the same recurring meeting type.
 - Static PDF path: `sites/g/files/vyhlif776/f/agendas/{M-D-YYYY}_agenda_.pdf`.
+- Minutes: `/node/34/minutes/2026` (also listed on `/planning-board`). Each
+  entry URL (e.g. `/planning-board/minutes/planning-board-7`) redirects
+  straight to the PDF `sites/g/files/vyhlif776/f/minutes/{name}.pdf`
+  (filenames inconsistent, e.g. `9-8-2026_amended_minutes_.pdf`); FetchUrl
+  works on the PDF URL. Minutes lag by about a month; as of 2026-10-20
+  minutes through 9/9 posted. Unscanned older 2026 minutes: 5/13, 4/8,
+  3/11, 2/12.
 - Meetings: roughly monthly-to-biweekly, 6pm (one outlier 10:00am entry —
   possibly a site walk or special session).
 

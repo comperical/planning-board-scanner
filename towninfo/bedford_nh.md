@@ -38,6 +38,10 @@ CivicPlus Agenda Center (see PATTERNS.md) — no bot protection.
   `ClaimDownload file=working/bedford_nh/_09142026-3000 dest=working/bedford_nh name=09_14_2026_PB_minutes.pdf`.
 - Minutes run 11-26 pages (much richer than the 1-2 page agendas).
 
+- Some meetings (e.g. 10/19/2026) have a ~2.5KB stub PDF reading "There Is
+  No Agenda Available For This Meeting" (PDF and Packet both); real agenda
+  is only in the `?html=true` view. Skip the stubs.
+
 ## Sample files downloaded
 
 - `working/bedford_nh/08 17 2026 PB agenda2 rev 8-13-26.pdf`

@@ -15,6 +15,15 @@ CivicPlus Agenda Center (see PATTERNS.md) — no bot protection.
 - Some agenda links carry a `?packet=true` query param (seen on a
   Selectmen example, not confirmed for Planning Board).
 
+## Update 2026-10-20
+
+- `/AgendaCenter` (capital A/C) loads; lowercase `/agendacenter` timed out once
+  in the headed session. Planning Board section is scrapeable via the standard
+  `tr`/`h2` eval. Listing goes back to 01/21/2026 (ids 291..372).
+- FetchUrl is Cloudflare-blocked now; use `<a download>` + ClaimDownload.
+- Minutes links are present on most rows; the bare `_MMDDYYYY-id` files
+  already in DB are minutes (via Minutes ViewFile).
+
 ## Document content
 
 - **Minutes PDF** (Mar 18, 2026, 361KB): `PdfKeywordScan` found 0 hits —

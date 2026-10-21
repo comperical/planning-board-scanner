@@ -17,6 +17,13 @@ protection.
 - Meetings: 1st & 3rd Tuesday monthly, 7pm, Litchfield Town Hall
   Conference Room.
 
+## Access (updated 2026-10-20)
+
+- Listing scrape works via `eval` over `a[href*=ViewFile]` on
+  `/AgendaCenter/Planning-Board-6/`; items like `_10202026-972`.
+- Downloaded via browser `<a download>` + `ClaimDownload` (headed session);
+  minutes arrive as `-{MMDDYYYY}-{id}.pdf`, pass `name=`.
+
 ## Document content
 
 - **Agenda PDF** (Sept 1, 2026, "Planning Board Hearing," 290KB): 1

@@ -15,6 +15,14 @@ from Nashua. Platform: standard CivicPlus Agenda Center (see PATTERNS.md)
 - Meetings: 2nd & 4th Wednesday, 7pm, Buxton Community Development
   Meeting Room, Town Hall lower level.
 
+## Access (updated 2026-10-20)
+
+- Works with headed session: `goto https://www.hudsonnh.gov/agendacenter`, scrape
+  `tr` rows via `eval` (Planning Board and Zoning Board of Adjustment sections).
+  Downloads via `<a download>` + `ClaimDownload` worked. Minutes links
+  (`/ViewFile/Minutes/_MMDDYYYY-id`) appear only on some rows (e.g. 8/26).
+- `?packet=true` packets exist on most rows; agenda PDF is 1 page only.
+
 ## Document content
 
 - **Agenda PDF** (Sept 9, 2026, 24KB): real content, terse table format

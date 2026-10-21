@@ -19,6 +19,10 @@ protection.
 - Meetings: 1st & 3rd Tuesday monthly, 6:30pm, Matthew Thornton Room,
   Town Hall West Wing.
 
+- Scan 2026-10-20: listing at `/agendacenter` scrapes fine; downloads via
+  headed browser `<a download>` + `ClaimDownload` worked (use `name=`).
+  Minutes link is `/AgendaCenter/ViewFile/Minutes/_MMDDYYYY-id` on the same row.
+
 ## Document content
 
 - **Agenda PDF** (Sept 1, 2026, 651KB): rich — `PdfKeywordScan` found 6

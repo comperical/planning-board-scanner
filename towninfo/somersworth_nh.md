@@ -18,6 +18,11 @@ PATTERNS.md), same family as Derry/Nottingham. No bot protection.
 - Static PDF path: `sites/g/files/vyhlif1226/f/agendas/{MM-DD-YYYY}_pb_
   agenda_.pdf`. Meetings: 3rd Wednesday monthly, 6pm.
 
+- Minutes: `/node/673/minutes/2026`; entries `/planning-board/minutes/minutes-NNN`
+  redirect straight to the PDF (`.../f/minutes/MM-DD-YY_pb_minutes.pdf`).
+  FetchUrl works (no bot block). Agenda PDF names vary (e.g.
+  `10-26-2026_planning_board_workshop_agenda.pdf`); get href from the agenda page.
+
 ## Document content
 
 - **Agenda PDF** (Sept 16, 2026, 173KB): real content — `PdfKeywordScan`

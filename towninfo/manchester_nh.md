@@ -26,6 +26,9 @@ Manchester is NH's largest city, on a custom DotNetNuke/"Portals" CMS
   `/Portals/2/Departments/pcd/BoardsCommissions/PlanningBoard/Minutes/
   {YYYY-MM-DD}_PB_MINUTES-APPROVED.PDF`. Only approved minutes are
   posted, ~6 weeks behind (8/5 was newest on 9/24). Rich (23pp for 8/5).
+- Update 2026-10-20: minutes page now also posts unapproved drafts
+  (`{date}_PB_MINUTES_DRAFT.PDF`, e.g. 10/1 draft was up by 10/20); 9/17
+  approved was up ~5 weeks after meeting. FetchUrl works fine (no bot block).
 - Agendas are posted ~2 weeks ahead.
 
 ## Document content
