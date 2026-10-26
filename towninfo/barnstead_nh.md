@@ -15,6 +15,11 @@ Agenda Center (see PATTERNS.md) — no bot protection.
   still active alongside the modern theme (same mixed-vintage pattern as
   Pelham/East Kingston).
 
+- As of 2026-10-25 plain `FetchUrl dest=working/barnstead_nh` still works on
+  `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}` (no Cloudflare).
+  Minutes files save with no extension (`_MMDDYYYY-id`); ingest as-is.
+  Each row's Minutes link is posted after the meeting (weeks later).
+
 ## Document content
 
 - **Agenda PDF** (Jul 2, 2026, 119KB): real content — `PdfKeywordScan`

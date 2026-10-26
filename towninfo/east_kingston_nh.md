@@ -16,6 +16,16 @@ Small Rockingham County town. Platform: standard CivicPlus Agenda Center
 - Meetings: 3rd Thursday monthly at 7pm, plus occasional extra sessions
   ("Planning Board Site Visit" seen for Apr 28, 2026).
 
+## Scan notes (2026-10-25)
+
+- Listing: `/AgendaCenter`, scrape with the `tr` eval from PATTERNS.md; every
+  row carries both Agenda and Minutes links (minutes can be posted within
+  days - 10/15 minutes were up by 10/25). Download via browser
+  `<a download>` + `ClaimDownload` (works; FetchUrl not tried).
+- DB holds agendas only for 9/17 and 10/15; 6/18, 7/16, 8/20 are minutes
+  (extension-less `_MMDDYYYY-id` names); the 6/18-8/20 agendas were never
+  downloaded.
+
 ## Document content
 
 - **Agenda PDF** (Sept 17, 2026, 303KB): substantial — `PdfKeywordScan`

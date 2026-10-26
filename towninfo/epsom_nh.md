@@ -45,6 +45,18 @@ PATTERNS.md) — no bot protection encountered.
 - Older months (Aug/Jul/Jun/May 2026) exist but hadn't been pulled as of
   2026-09-25.
 
+## Scan notes (2026-10-25)
+
+- **Planning Board Minutes now exist** (no longer `noFiles`): tree has
+  2026 and 2025; 2026 has Sep, Aug, Jul, Jun... Pulled 9.9, 9.23, 8.12,
+  8.26 minutes. Jul and earlier minutes/agendas not pulled yet.
+- Faster clicks after `goto`: use locators, e.g.
+  `click "getByRole('treeitem', { name: 'Planning Board Minutes' })"`, then
+  `...getByRole('treeitem', { name: '2026' })`, month, then
+  `click "getByRole('treeitem', { name: 'Planning Board Minutes 8.12.26' }).getByRole('button', { name: 'View' })"`.
+  The viewBlob request was index 33 each time; `response-body 33` then
+  `mv .playwright-cli/response-*.pdf working/epsom_nh/<name>.pdf` (plain mv works).
+
 ## Open items for later
 
 - None blocking — access path fully resolved. Future scans: repeat the

@@ -37,6 +37,7 @@ no bot protection.
 - **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare) on
   ViewFile URLs. Browser `<a download>` + `ClaimDownload` works.
 - Agendas are posted ~3 weeks ahead (10/13 materials up on 9/24).
+- 2026-10-25 scan: listing at `/AgendaCenter/Planning-Board-6` works headed; each row has HTML/PDF/Packet links. Agendas posted ~4 weeks ahead (11/10 up by 10/25). Cancelled meetings appear as "PLANNING BOARD MEETING - CANCELLED" (10/27). Minutes appear ~1 week after meeting as `ViewFile/Minutes/_{date}-{id}`.
 - Meetings: 2nd & 4th Tuesday, 7pm, Knightly Meeting Room, Salem Town
   Hall.
 

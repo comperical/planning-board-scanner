@@ -28,6 +28,11 @@ Platform: node-based CivicPlus (see PATTERNS.md), older Drupal template.
   **"Long Range Planning Committee"** sub-body posting its own agendas
   roughly weekly (Master-Plan-oversight-style, same pattern as Exeter's
   TRC).
+- The newest rows (draft/just-posted) have generic titles and link to an HTML
+  node page (e.g. `/planning-board/minutes/planning-board-draft-minutes`,
+  `/planning-board/agenda/planning-board-meeting-agenda-0`) rather than a
+  PDF; fetch that page in-browser and regex `(agendas|minutes)/[\w.-]+\.pdf`
+  to get the PDF. Rows have no dates; dates are only in filenames.
 - Clicking a list item redirects straight to the static PDF, no
   intermediate node page. Sidebar also links a frozen pre-2016 legacy
   archive at `cmsarchive.civicplus.com/North%20Hampton%20NH/...`.

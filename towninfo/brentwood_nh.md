@@ -2,6 +2,8 @@
 
 > **Update 2026-09-21: download blocker resolved.** The site serves a Cloudflare challenge to every non-browser request (not a hotlink/Referer check). Download via a native `<a download>` click in the headed `planscan` session, then `plan_entry.py ClaimDownload` - see PATTERNS.md "Browser-only downloads". Base64 references below are historical. Confirmed: `docview.aspx?doctype=agendaDoc&docid=14865` = 2026-09-17 PB agenda (.docx), now at `working/brentwood_nh/2026.09.17_PB_Agenda.docx` (not yet ingested).
 
+> **Scan tip (2026-10-25):** the `/agendalist.aspx?categoryid=12514` page text lists meetings newest first (dates + Agenda/Minutes/Video); `a[href*=docview]` links appear in the same order, one docid shared by a meeting's agenda+minutes. Click only one download link per eval (a batch of 3 lost one). Site-walk meetings also have agendas.
+
 Investigated: 2026-09-14
 
 Brentwood is the **only town in this project on the "Municipal One"

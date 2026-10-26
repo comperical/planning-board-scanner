@@ -6,6 +6,8 @@
 
 > **Update 2026-10-15:** Shortcuts. Meeting ids: on the listing page, `eval` `jQuery(document.querySelector('tr[data-uid]').closest('[data-role=grid]')).data('kendoGrid').dataItem(row).doc_id` per row, then `goto /Tabs/Index/{doc_id}/public/1/deptnum/0/cab/Public_Meetings` directly. To list every file on all tabs at once, `eval` an async loop that clicks each `[role=tab]` (1.5 s wait) and then reads `td[role=gridcell]` texts ending `.pdf`. Click a file by `getByRole('gridcell', { name: '<file>' })` after switching to its tab.
 
+> **Update 2026-10-25:** Materials can be posted ~2 days before a meeting (10/27 PB packet was 143 MB / 528 pp). Agenda may be re-posted as `AgendaFinal` (e.g. 10/13); on the minutes/materials tabs earlier files stay listed, so use `.first()` on gridcell locators when names repeat. Minutes name may contain a space (`2026.10.13 PlanningBoard.Minutes.pdf`); PB minutes appeared ~12 days after the meeting.
+
 Investigated: 2026-09-12
 
 Platform: **Treeno** document-management system (see PATTERNS.md), not

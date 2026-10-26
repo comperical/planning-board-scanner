@@ -2,6 +2,13 @@
 
 > **Update 2026-09-21:** Agenda Center `ViewFile` URLs now return a Cloudflare 403 to plain `FetchUrl` (worked on 2026-09-12). Use a native `<a download>` click in the headed `planscan` session + `ClaimDownload` (see PATTERNS.md "Browser-only downloads"). `?packet=true` gives the combined agenda packet.
 
+Confirmed 2026-10-25: the browser `<a download>` + ClaimDownload route works
+(`/AgendaCenter/ViewFile/Agenda/_MMDDYYYY-id`, `?packet=true`, and
+`/Minutes/_MMDDYYYY-id`). To list only Planning Board links, filter anchors
+by `a.closest('tr').textContent` containing "Planning Board". Saved filenames
+are odd (`10282026.pdf`, `10282026Plus.pdf`, `-10142026-420.pdf`); use `name=`.
+Cloudflare note below ("no bot protection") is outdated.
+
 Investigated: 2026-09-12
 
 Platform: standard CivicPlus Agenda Center (see PATTERNS.md).

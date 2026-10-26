@@ -23,6 +23,11 @@ Wednesday). Platform: standard CivicPlus Agenda Center (see PATTERNS.md)
   Cloudflare). Minutes files save as `_{MMDDYYYY}-{id}` (no extension, PDF);
   agendas as `MM-DD-YY  PB Draft Agenda.pdf`.
 
+- Confirmed 2026-10-25: minutes `_10142026-361` came back as a .docx
+  (content-type wordprocessingml) despite the extension-less name; IngestPdfTool
+  handled it fine. Minutes may be PDF or docx.
+- Agenda Center also holds Budget Committee items; filter rows by "Planning".
+
 ## Document content
 
 - **Agenda PDF** (Sept 9, 2026, 340KB): real project detail —

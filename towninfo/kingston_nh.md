@@ -62,6 +62,14 @@ content-analyzed — blocked on the decode-to-disk step.**
 - The 9/15 "UPDATED" agenda is `/media/21451`. Hearing packets (up to 9
   files per meeting) were skipped.
 
+## Scan notes (2026-10-25)
+
+- Session must be opened with `--headed --config=working/playwright_cli.config.json`
+  or downloads land in `.playwright-cli/` (ClaimDownload can't read it); reopened that way.
+- CIP Committee meetings (8/27: agenda `/media/21091`, minutes `/media/21576`) are on
+  `/meetings/recent` too; ingested as 2026.08.27_CIP_*.pdf.
+- Minutes for 9/1, 9/15, 10/6 not yet posted as of 10/25.
+
 ## Open items for later
 
 - Script (or get approval for) the base64-decode-to-file step so

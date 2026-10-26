@@ -21,6 +21,10 @@ docs). No bot protection.
 - Board meets roughly biweekly (1st & 3rd — sometimes shifted)
   Wednesday/Thursday, 6:30pm, Town Hall Conference Room.
 
+- Confirmed 2026-10-25: plain `FetchUrl` still works on
+  `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}` (no Cloudflare
+  block); saved filename is the `_MMDDYYYY-id` segment, no extension.
+
 ## Document content
 
 - **Agenda PDF** (Sept 17, 2026, 60KB, 1 page): real substance —

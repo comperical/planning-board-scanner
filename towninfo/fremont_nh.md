@@ -18,6 +18,11 @@ Small Rockingham County town. Platform: standard CivicPlus Agenda Center
   Sept 16, 2026 agenda (`_09162026-255`) was a 1.8KB PDF stub on 9/14 and
   a full 44KB **`.docx`** by 9/22. Re-fetch any stub-sized agenda on the
   next pass; also expect mixed PDF/.docx formats.
+- As of 2026-10-25 (scan 362): `FetchUrl` not tried; used headed browser
+  `<a download>` + `ClaimDownload` (works; 6 files in one eval, 2.5s gaps).
+  Agendas download as `PB YYYYMMDD_Agenda.pdf`; minutes as `_MMDDYYYY-id.pdf`
+  (pass `name=`). Direct URL `/AgendaCenter/Planning-Board-3` still works.
+  Meetings are 1st and 3rd Wednesdays.
 - Also posts "Capital Improvement Program (CIP)" committee agendas in the
   same section — skip alongside the Community Facilities Subcommittee.
 - Lists **multiple related boards** in one place — a "Community

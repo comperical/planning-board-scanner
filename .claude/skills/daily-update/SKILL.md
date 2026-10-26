@@ -1,6 +1,6 @@
 ---
 name: daily-update
-description: The morning protocol that brings every town up to date - re-scan about 1/7 of the towns (the stalest first, skipping any scanned in the last 24h), analyze every newly found document, find contacts for projects that have none, and finish with a DailyReport summary. Use when asked to "run the daily update", "do the morning run", "bring the towns up to date", or /daily-update.
+description: The morning protocol that brings every town up to date - re-scan every town that is due (no good scan in the last 7 days, stalest first), analyze every newly found document, find contacts for projects that have none, and finish with a DailyReport summary. Use when asked to "run the daily update", "do the morning run", "bring the towns up to date", or /daily-update.
 ---
 
 # Daily Update
@@ -33,18 +33,17 @@ interrupted `ApplyProjectEdit` - finish applying them.
 The browser session is opened (headed) in step 1 by the first
 `scan-single-town` agent and left open for the following towns.
 
-## 1. Scan today's share of towns
+## 1. Scan every town that is due
 
 ```bash
-wwiocode/pyscript/plan_entry.py NextToScan daily=true
+wwiocode/pyscript/plan_entry.py NextToScan due_days=7 limit=0
 ```
 
-`daily=true` returns the day's quota: about 1/7 of the towns in the DB
-(ceil(N/7), e.g. 10 of 68), never-scanned towns first, then oldest last
-good scan. Towns with a good scan in the last 24 hours are skipped, so the
-list is only shorter than the quota when nearly every town was scanned
-that recently. Scan exactly the towns it lists - don't add more or stop
-short mid-run.
+This lists every town that requires a scan: never-scanned towns first,
+then any whose last good scan is 7+ days old (with 6h of slack), oldest
+first. It's the same rule as the report's "still due" count, so a
+complete run leaves that at zero. Scan all the towns it lists - don't add
+more or stop short mid-run. If it lists none, go straight to step 2.
 
 Also note any "towninfo write-up(s) with no town row" it lists - those are
 new towns that have never been scanned; include them.
@@ -127,4 +126,4 @@ End the session with a short message: the highlights, counts (towns
 scanned / failed, new documents, new and updated projects, contacts added),
 the path to the
 saved report, and how many towns are still due (from the report's
-"Outstanding" section).
+"Outstanding" section - normally zero, or just the ones that FAILED).

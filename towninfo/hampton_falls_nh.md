@@ -34,6 +34,7 @@ this project where that's the case. No bot protection.
 - `FetchUrl` on `/AgendaCenter/ViewFile/{Agenda|Minutes}/_MMDDYYYY-ID dest=working/hampton_falls_nh`
   works (no Cloudflare) but saves with no extension. Rename without `mv` via
   `ClaimDownload file=<that path> dest=working/hampton_falls_nh name=YYYY.MM.DD_PB_Minutes.docx`.
+- FetchUrl now saves with the real filename (e.g. `2026-10-27 PB Agenda.docx`) via Content-Disposition (2026-10-25); no rename needed. Agendas get posted before the meeting; minutes appear after next month's approval.
 - Listing (2026-10-16) only shows Jan-Sep 2026; Jan-May 2026 items are not in the DB.
 
 ## Open items for later

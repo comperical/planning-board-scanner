@@ -15,6 +15,13 @@ Center (see PATTERNS.md) — no bot protection.
 - Meetings often held at "Old Town Hall, 1800 NH Rte 140, Gilmanton Iron
   Works" (a village within the town). Roughly biweekly, 6:30pm.
 
+## Access (updated 2026-10-25)
+
+- Listing: `/AgendaCenter` (Planning Board section). Files at
+  `/AgendaCenter/ViewFile/Agenda/_{MMDDYYYY}-{id}`. Use headed browser
+  `<a download>` + `ClaimDownload` (name= to rename). Minutes are rare
+  (only 1/8, 2/12, 3/12, 4/22, 5/19 posted as of 10/25).
+
 ## Document content
 
 - **Agenda PDF** (Jul 9, 2026, 213KB): real content — `PdfKeywordScan`

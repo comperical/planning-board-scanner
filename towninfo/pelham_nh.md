@@ -75,3 +75,9 @@ until it does (re-run, or take one `snapshot`). Then:
   directly; the same `eval` over `[id^=downloadFilesMenu-]` lists upcoming
   events (Coming Up) with ids. Past events need the portal's Past Events
   view (not checked).
+
+## Scan notes (2026-10-25)
+
+- /866/ widget rendered fine. Downloads land in `.playwright-cli/<slug>.pdf` (NOT working/playwright_output) - ClaimDownload rejects that path (must start with working/), so `mv` the file into working/pelham_nh/ directly, then IngestPdfTool.
+- Minutes get re-posted as APPROVED versions after the non-approved draft (e.g. 10/5): re-check Minutes (PDF) for already-ingested meetings whose minutes were 'Non-Approved'.
+

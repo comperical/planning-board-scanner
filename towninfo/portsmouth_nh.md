@@ -73,6 +73,13 @@ protection encountered.
   cycle later (7/16 and 9/17 minutes were not up on 10/5). Meetings now
   start at 6:00 pm.
 
+## Scan notes (2026-10-25)
+
+- 10-15-2026 meeting folder is up with ln, ag_Rev, Memo_REV, packet (135 MB / 523 pp),
+  as, FOF_LOD combined; 9-17 minutes posted as `9-17-2026_pb_min_rev.pdf`. File names
+  vary per meeting (suffixes like _Rev, _REV), so always use the eval link list.
+  7-16 minutes still not posted.
+
 ## Open questions / not yet checked
 
 - How far back the archive page's listing goes / whether it paginates.
