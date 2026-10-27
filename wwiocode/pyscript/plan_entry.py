@@ -134,8 +134,9 @@ class IngestPdfTool:
 
     Full-page text extraction (OCR fallback per scanned PDF page, via
     plan_util.get_pdf_page_texts) is the slow step for a large scanned
-    packet - pass with_text=false to skip it (stats and keyword hits are
-    still recorded) and re-run later with the text if needed.
+    packet. It is OFF by default to keep the DB under 10MB (page text was
+    ~2/3 of it); pass with_text=true to store it. DocDetail reads the PDF
+    live when no text is stored.
 
     Pass scan_id=<id> (from StartScanLog) if this file was just discovered
     during a scan pass - it's recorded as documents.first_scan_id, and only
@@ -143,7 +144,7 @@ class IngestPdfTool:
     won't overwrite it).
 
     Args: pdf=working/<path>.pdf|.docx  [source_url=...]  [date=YYYY-MM-DD]
-          [keywords=a,b,c]  [with_text=true]  [scan_id=<id>]
+          [keywords=a,b,c]  [with_text=false]  [scan_id=<id>]
     """
 
     def run_op(self, argmap):
@@ -151,7 +152,7 @@ class IngestPdfTool:
         source_url = argmap.getStr("source_url", "") or None
         date = argmap.getStr("date", "") or None
         keywords = argmap.getStr("keywords", UTIL.DEFAULT_SCAN_KEYWORDS)
-        with_text = argmap.getBit("with_text", True)
+        with_text = argmap.getBit("with_text", False)
         scan_id = argmap.getInt("scan_id", -1)
 
         conn = DB.get_connection()
@@ -886,6 +887,8 @@ class DocDetailTool:
             page_texts = [(num, text or "") for num, text in conn.execute(
                 "SELECT page_number, page_text FROM doc_pages WHERE document_id = ? ORDER BY page_number",
                 (document_id,))]
+            if not any(text for _, text in page_texts):
+                page_texts = list(enumerate(UTIL.get_pdf_page_texts(pdf), 1))
         else:
             info = UTIL.extract_pdf_info(pdf)
             scanned = sum(1 for pg in info["pages"] if not pg["has_selectable_text"])
