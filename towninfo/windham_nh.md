@@ -19,6 +19,8 @@ standard CivicPlus Agenda Center (see PATTERNS.md) — no bot protection.
 - Minutes posted through 9/23/2026 (checked 2026-10-25); 8/5, 8/19, 9/9,
   9/16, 9/23 ingested. Not yet posted: 10/7. Minutes before 8/5 exist back
   to 1/7/2026 but are not ingested in DB.
+- Checked 2026-11-05: newest PB agenda 11/4 (id 3072); 10/7 and 10/21
+  minutes still not posted. Growth Mgmt rows (10/6, 11/17) skipped.
 - **CHANGE 2026-09-24:** plain `FetchUrl` now 403s (Cloudflare);
   browser `<a download>` + `ClaimDownload` works.
 

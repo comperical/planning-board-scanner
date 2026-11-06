@@ -21,6 +21,19 @@ still `FetchUrl`-able.
 - Static PDF path: `sites/g/files/vyhlif916/f/agendas/milton_pb_agenda_
   {MM-DD-YY}.pdf`. Meetings: 1st & 3rd Tuesday monthly, 6pm.
 
+## Minutes (as of 2026-10-27)
+
+- Minutes index: `/node/107/minutes/2026`; entries at
+  `/planning-board/minutes/planning-board-draft-meeting-minutes-{n}`.
+  Visiting an entry URL in the headed browser triggers an immediate file
+  download (redirect to file), e.g. `working/playwright_output/...`.
+- Newer minutes (10/6 approved, 10/20 draft) are legacy binary `.doc`
+  (OLE), NOT pdf/.docx: `ClaimDownload` and `IngestPdfTool` reject them.
+  Older ones were PDFs (`..._draft_minutes-bww_rev.pdf`). Needs a .doc
+  to .docx/.pdf conversion step (or tool support) to ingest.
+- Agenda entries often carry no usable file for non-regular items; 10/6
+  had only a public hearing notice (no agenda PDF).
+
 ## Document content
 
 - **Agenda PDF** (Sept 15, 2026, 156KB): light — `PdfKeywordScan` found 3

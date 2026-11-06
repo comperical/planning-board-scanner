@@ -46,6 +46,14 @@ step.**
   later (9/16 minutes = `/media/3391`). Upcoming meetings: `/planning-board`
   hub links `/planning-board/meeting/planning-board-{N}` (24 = Oct 21).
 
+## Scan notes (2026-11-05)
+
+- `/meetings/recent` still best. Extract links via eval on `a[href*=media]`
+  (title attr = "PDF Agenda for Planning Board - date"). Batch download of
+  several `<a download>` clicks in one eval works; some files are `.docx`
+  (packets) and some downloads land with odd names (check `find -newer`).
+  Nov 4 = planning-board-25 (agenda 3451, packets 3456, 3461).
+
 ## Open items for later
 
 - Needs the base64-decode-to-file step (see PATTERNS.md TODOs) to

@@ -4,6 +4,18 @@ Investigated: 2026-09-12
 
 Platform: node-based CivicPlus (see PATTERNS.md), older Drupal template.
 
+## UPDATE 2026-11-05: site migrated to CivicPlus Agenda Center
+
+The `/node/249/...` and `/planning-board` URLs below now 404 (Custom404 /
+CivicEngage). Live path: `https://www.northhampton-nh.gov/agendacenter`
+(headed session). Expand the "Planning Board" section (button), then
+scrape `a[href*=ViewFile]` via eval; ids like
+`/AgendaCenter/ViewFile/Agenda/_11172026-561`. Download via `<a download>`
+eval + `ClaimDownload` (FetchUrl not used). The LRPC (Long Range Planning
+Committee) agendas are listed under the same Planning Board section; they
+have not been ingested in prior scans. Planning Board hub is now
+`/432/Planning-Board`. The notes below are historical.
+
 ## Platform notes
 
 - Site: `https://www.northhampton-nh.gov` (hyphenated domain —

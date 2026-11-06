@@ -26,6 +26,14 @@ Small Rockingham County town. Platform: standard CivicPlus Agenda Center
   (extension-less `_MMDDYYYY-id` names); the 6/18-8/20 agendas were never
   downloaded.
 
+## Scan notes (2026-11-05)
+
+- `FetchUrl dest=working/east_kingston_nh` works directly on ViewFile
+  URLs (no Cloudflare block; Content-Disposition gives real filenames).
+- Listing also posts extra non-regular items: 11/04 row is a work session
+  agenda (file named "11122026 EKPB Agenda Work Session.pdf").
+- Agendas are posted well ahead (11/19 agenda was up by 11/05).
+
 ## Document content
 
 - **Agenda PDF** (Sept 17, 2026, 303KB): substantial — `PdfKeywordScan`

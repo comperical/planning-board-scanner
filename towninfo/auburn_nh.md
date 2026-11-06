@@ -24,6 +24,12 @@ Agenda Center (see PATTERNS.md) — no bot protection.
 - Uses a **case-number system** (e.g. "P26-03", "P26-05") tagging each
   agenda item — useful for tracking one application across meetings.
 
+- 2026-11-05: confirmed `.gov` AgendaCenter is canonical; PB rows have
+  ViewFile ids like `/Agenda/_09162026-180`, `/Minutes/_09162026-180`.
+  `<a download>` + ClaimDownload works (minutes land as `-MMDDYYYY-id.pdf`,
+  agenda as `MM-DD-YYYY.pdf`). Jan-Apr 2026 PB agendas/minutes (1-7, 1-21,
+  2-18, 4-15) are on the site but were not ingested.
+
 ## Document content
 
 - **Agenda PDF** (May 20, 2026, 276KB): real project detail —

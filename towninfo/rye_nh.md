@@ -4,6 +4,8 @@
 >
 > **Update 2026-10-07:** The Agenda Center lists all boards together, and row titles vary ("Planning Board Site Walk ...", "Technical Review Committee (TRC)", "Joint Select Board/Planning Board Workshop"). Filter by row text rather than trusting a WebFetch summary, which mislabeled Rules & Regs and TRC rows as Planning Board. TRC rows (e.g. 8/26 on 701 South Rd) carry real project review and should be scanned too.
 
+> **Update 2026-11-05:** `FetchUrl` works again on Agenda Center `ViewFile/Minutes|Agenda/_MMDDYYYY-id` URLs (no Cloudflare block seen); browser route not needed. Listing rows are easy to pull with `eval` over `a[href*="ViewFile"]` filtered by row text.
+
 Investigated: 2026-09-12
 
 Platform: standard CivicPlus Agenda Center (see PATTERNS.md). No bot

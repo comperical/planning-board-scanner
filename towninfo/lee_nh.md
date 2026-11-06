@@ -26,8 +26,12 @@ Platform: node-based CivicPlus (see PATTERNS.md). No bot protection.
   straight to the PDF `sites/g/files/vyhlif776/f/minutes/{name}.pdf`
   (filenames inconsistent, e.g. `9-8-2026_amended_minutes_.pdf`); FetchUrl
   works on the PDF URL. Minutes lag by about a month; as of 2026-10-20
-  minutes through 9/9 posted. Unscanned older 2026 minutes: 5/13, 4/8,
-  3/11, 2/12.
+  minutes through 9/9 posted (as of 2026-11-05 still only through 9/9;
+  10/14 minutes not yet up). 2/12-5/13 minutes ingested 2026-11-05.
+  Listing pages are plain divs (not li/tr); agenda entry pages
+  (`/planning-board/agenda/planning-board-meeting-N`) contain the PDF
+  href, so fetch() them from the browser to resolve PDF URLs. Agendas
+  are posted ahead (11/18 agenda was up by 11/5).
 - Meetings: roughly monthly-to-biweekly, 6pm (one outlier 10:00am entry —
   possibly a site walk or special session).
 

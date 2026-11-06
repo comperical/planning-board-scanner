@@ -10,6 +10,12 @@ Castle/Derry. **Cloudflare since ~2026-10-03**: listing pages 403
 listing: `/node/176/minutes/{year}`; detail pages redirect to the PDF
 (resolve via in-page `fetch(...)` and read `r.url`).
 
+Confirmed 2026-11-05: headed session works; listings `/node/176/agenda/2026`
+and `/node/176/minutes/2026`; minutes detail pages
+`/planning-board/minutes/pb-minutes-{MDYY}` resolve via in-page fetch to
+`sites/g/files/vyhlif3611/f/minutes/nottingham_planning_board_minutes_{M-D-YY}_draft.pdf`,
+and `FetchUrl` downloads them fine.
+
 ## Platform notes
 
 - Main site: `https://www.nottingham-nh.gov`. Planning Board hub:

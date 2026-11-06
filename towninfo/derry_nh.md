@@ -17,6 +17,8 @@ Castle/Rye/Exeter. No bot protection.
   `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}`; plain
   `FetchUrl` works (no Cloudflare as of 2026-10-03). Minutes are posted on
   the same row as their agenda.
+- Re-confirmed 2026-11-05: `FetchUrl` still works (no Cloudflare); minutes
+  save as extensionless `_{MMDDYYYY}-{id}` (real PDFs).
 - Meetings: 1st & 3rd Wednesday, 7pm, Derry Municipal Center.
 - Sidebar links worth a future pass: "Planning Board Fees per RSA 673",
   and — most relevant — a "Gateway Zoning Committee" sub-page and a "West

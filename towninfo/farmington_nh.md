@@ -13,6 +13,12 @@ expanded.
 - Meetings: 1st & 3rd Wednesday monthly, 6:30pm, Selectmen's Chambers,
   Municipal Offices, 356 Main Street.
 
+## Access (verified 2026-11-05)
+
+- Use `/AgendaCenter` (Planning Board section rows in DOM; scrape via `eval`).
+  `FetchUrl` still works (no Cloudflare). Minutes are .docx served without
+  extension (saved as `_{MMDDYYYY}-{id}`); `IngestPdfTool` still ingests them.
+
 ## Document content
 
 - **Agenda PDF** (Aug 19, 2026, 197KB): very rich — `PdfKeywordScan`

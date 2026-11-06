@@ -16,6 +16,12 @@ CivicPlus Agenda Center (see PATTERNS.md) — no bot protection.
   Merrimack).
 - Meetings: 1st Thursday monthly, 6:30pm, Grange Hall, 54 Main Street.
 
+- Scan 2026-10-27: Agenda Center listing is scrapable via the `tr`/`h2`
+  recipe in PATTERNS.md. Rows' `ViewFile/Minutes/_{MMDDYYYY}-{id}` link
+  (same id as agenda) serves the minutes PDF (e.g. 10/1 minutes, 11pp, were
+  already ingested as `_10012026-264`). Files are named `_{date}-{id}`
+  with no extension in the DB. Browser `<a download>` + ClaimDownload works.
+
 ## Document content
 
 - **Agenda PDF** (Sept 3, 2026, 319KB): real content — `PdfKeywordScan`

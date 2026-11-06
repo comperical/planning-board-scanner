@@ -67,3 +67,6 @@ Center (see PATTERNS.md) — no bot protection.
   8/12) have a Minutes link at `/AgendaCenter/ViewFile/Minutes/_{MMDDYYYY}-{id}`
   (plain `FetchUrl` works; file saves with no extension). 8/5, 9/2, 9/9
   and 10/7 have none yet. Agendas go up ~2 weeks ahead.
+- 2026-11-05: FetchUrl still works. Newest row 11/4 "Planning Board Agenda
+  and Materials" (id 1324, saves as `11042026.pdf`). Minutes for 8/5, 9/2,
+  9/9 were posted late (by 11/5); 10/7, 10/14, 11/4 minutes not yet.

@@ -6,6 +6,8 @@
 
 > **Update 2026-10-25:** the Events API returned HTTP 500 for every query (even `$top=3`) - API seemingly down/changed; fall back to the portal home feed (click "Load more previous events"; events with files show a "Download Files from this Event" button). As of 10/25 the 9/8 Workshop+Meeting and 10/13 PB Meeting had no files posted.
 
+> **Update 2026-11-05:** Events API works again (200). In bash use single-quoted eval so `$filter`/`$orderby` aren't expanded. As of 11/5, PB events 9/8 (Workshop+Meeting), 10/13 had no publishedFiles; 11/10 and 12/8 PB meetings are placeholders, no files.
+
 Investigated: 2026-09-12
 
 Platform: **CivicClerk** SPA portal (see PATTERNS.md), a different

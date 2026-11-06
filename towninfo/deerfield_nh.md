@@ -17,6 +17,12 @@ CivicPlus Agenda Center (see PATTERNS.md) — no bot protection.
 - Meetings: 2nd & 4th Wednesday, 7pm, George B. White Building, 8 Raymond
   Road.
 
+## Download notes (2026-11-05)
+
+- `FetchUrl` still works (no Cloudflare). Listing: `/AgendaCenter`, scrape
+  `tr` rows under the "Planning Board" h2. Minutes via FetchUrl save with
+  no extension (`_MMDDYYYY-id`); ingest accepts that name as-is.
+
 ## Document content
 
 - First sample (Sept 9, 2026, 74KB): 0 keyword hits — likely

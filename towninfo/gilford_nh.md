@@ -40,6 +40,18 @@ analyzed.**
 - Files: `/file/{id}/{name}.docx`, `FetchUrl` works (content-type reported as
   application/msword but they ingest as docx).
 
+## Scan notes (2026-11-05)
+
+- **Minutes exist**: approved minutes are linked on meeting pages as
+  `/assets/municipal/22/minutes/Gilford_Planning_Minutes_<M-D-YY>_-_approved.docx`
+  (relative href, no `/file/` prefix) - a `/file/`-only selector misses them.
+  Use selector `a[href*="/file/"], a[href*="assets/municipal"]`. Minutes seen
+  for 2/9, 4/20, 5/18, 7/20 (posted ~1 meeting late); `FetchUrl` works.
+- Notices for the next hearing are often attached to the *previous* meeting
+  page (e.g. Regular-Meeting-3430 / 10/19 holds the 11/2 notice).
+- Fast sweep: one `eval` with `fetch('/agenda/<slug>')` over all slugs and
+  regex for hrefs. Non-"Regular-Meeting" slugs are `Public-Hearing-NNNN`.
+
 ## Document content
 
 ## Sample files downloaded

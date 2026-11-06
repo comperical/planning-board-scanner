@@ -76,6 +76,10 @@ until it does (re-run, or take one `snapshot`). Then:
   events (Coming Up) with ids. Past events need the portal's Past Events
   view (not checked).
 
+## Scan notes (2026-11-05)
+
+- Widget needed a second `eval` retry (first returned empty). Downloads landed in `working/playwright_output/` this time and ClaimDownload worked. Only ~6 events listed (9/10 onward). 9/10 approved minutes appeared ~8 weeks after the meeting.
+
 ## Scan notes (2026-10-25)
 
 - /866/ widget rendered fine. Downloads land in `.playwright-cli/<slug>.pdf` (NOT working/playwright_output) - ClaimDownload rejects that path (must start with working/), so `mv` the file into working/pelham_nh/ directly, then IngestPdfTool.

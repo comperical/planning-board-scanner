@@ -13,6 +13,11 @@ section loads already expanded.
 - Also has a "Recorded Meetings" nav item (site-wide video archive) — a
   possible secondary source not explored.
 
+- Update 2026-10-27: Cloudflare now blocks FetchUrl on ViewFile; use headed
+  browser `<a download>` + ClaimDownload (pass name= for minutes). The Select
+  Board shares the page; filter the Planning Board section by h2. The
+  `_07282026-359` DB entry is the Jul 28 minutes (Minutes re-download is a duplicate).
+
 ## Document content
 
 - **Public Hearing Notice PDF** (Sept 22, 2026, 155KB): real content —

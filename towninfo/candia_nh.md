@@ -16,6 +16,10 @@ PATTERNS.md) — no bot protection.
   Street. Unapproved minutes posted with an asterisk, replaced once
   approved.
 
+- Confirmed 2026-10-27: `/AgendaCenter` listing scrape works; plain
+  `FetchUrl` on `/AgendaCenter/ViewFile/{Agenda|Minutes}/_{MMDDYYYY}-{id}`
+  still works (no Cloudflare). Cancelled meetings still get an agenda row.
+
 ## Document content
 
 - **Minutes PDF** (May 20, 2026, 221KB): real project detail —

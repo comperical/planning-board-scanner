@@ -17,6 +17,11 @@ towns').
 - Meetings: 1st & 3rd Thursday-ish, 7pm, Bow Municipal Building Meeting
   Room C (or Zoom).
 
+- Scan 2026-10-27: headed browser listing + `<a download>`/`ClaimDownload`
+  worked (minutes: `/AgendaCenter/ViewFile/Minutes/_MMDDYYYY-id`). Minutes
+  for a meeting are posted ~1-2 weeks after. "Zoning Amendment Review"
+  agendas (1st Thursday) also appear.
+
 ## Document content
 
 - **Agenda PDF** (Jul 16, 2026, 193KB): real content — `PdfKeywordScan`
