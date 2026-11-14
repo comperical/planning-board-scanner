@@ -52,6 +52,16 @@ analyzed.**
 - Fast sweep: one `eval` with `fetch('/agenda/<slug>')` over all slugs and
   regex for hrefs. Non-"Regular-Meeting" slugs are `Public-Hearing-NNNN`.
 
+## Scan notes (2026-11-13)
+
+- Backfilled Jan-Mar 2026 gaps (1/20 + 3/2 minutes, 3/2 agenda, 1/20 + 3/16
+  notices) that earlier scans missed. Minutes can also be `.pdf` (8/31/26:
+  `assets/municipal/22/minutes/Planning_Board_meeting_min_approved_8.31.26.pdf`).
+- Cancelled meetings carry `*_PB_Cancellation_Agenda.docx` (not ingested).
+- Listing (/agendas/-22) shows meetings only through 10/19 so far; the 11/2
+  notice hangs off the 10/19 page. Sweep eval: loop over `a[href*="/agenda/"]`,
+  fetch each, regex the file hrefs.
+
 ## Document content
 
 ## Sample files downloaded

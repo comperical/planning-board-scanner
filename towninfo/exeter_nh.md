@@ -5,7 +5,20 @@ Investigated: 2026-09-12
 Platform: Drupal ("municodeWEB" design, footer credit "ahaconsulting.com"
 — see PATTERNS.md). No bot protection.
 
-## Platform notes
+## UPDATE 2026-11-13: SITE MIGRATED TO CIVICPLUS (CivicEngage)
+
+`www.exeternh.gov/meetings` now 404s (old Drupal site gone). Current
+archive is the CivicPlus Agenda Center: `https://www.exeternh.gov/AgendaCenter`.
+Planning Board category is `table8` / CID 8 (year tabs via
+`changeYear(2025, 8, 'a1')`); includes TRC/Master Plan Oversight Committee
+items. Links: `/AgendaCenter/ViewFile/Agenda/_MMDDYYYY-{id}` (PDF),
+`?html=true`, `?packet=true`; minutes at `/AgendaCenter/ViewFile/Minutes/_MMDDYYYY-{id}`.
+Calendar: `/calendar.aspx?CID=...`. Agenda Center lists only Nov 5 + MPOC
+10/29, 9/9 for Aug-Nov 2026 (it appears backfilled only partially); Aug-Oct docs
+in DB came from the old site. FetchUrl-blocking status on this new site not tested.
+Older notes below describe the old Drupal site.
+
+## Platform notes (old Drupal site)
 
 - Site: `https://www.exeternh.gov`.
 - Per-board static pages (`bcc/planning-board`, etc.) are really just a

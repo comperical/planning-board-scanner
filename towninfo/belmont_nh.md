@@ -34,6 +34,10 @@ Belknap County town, south of Laconia/Gilford. Platform: custom WordPress
   not track the meeting month either - read hrefs from the page.
 - Each meeting page has agenda + (later) minutes; minutes are 5-16 pages.
 
+- (2026-11-13) The 11/23 meeting page existed ~10 days ahead with agenda
+  `2026/10/2611118-PBAgenda.pdf` [sic] plus a proposed 2027 zoning
+  amendments full-text PDF. Page may be published well before the meeting.
+
 ## Document content
 
 - **Agenda PDF** (Feb 23, 2026, 159KB): real content — `PdfKeywordScan`
