@@ -222,3 +222,4 @@ __marimo__/
 
 # Playwright CLI snapshots/logs
 .playwright-cli/
+.DS_Store
