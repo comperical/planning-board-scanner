@@ -37,6 +37,8 @@ this project where that's the case. No bot protection.
 - FetchUrl now saves with the real filename (e.g. `2026-10-27 PB Agenda.docx`) via Content-Disposition (2026-10-25); no rename needed. Agendas get posted before the meeting; minutes appear after next month's approval.
 - Listing (2026-10-16) only shows Jan-Sep 2026; Jan-May 2026 items are not in the DB.
 
+- 2026-11-16: Nov 17 agenda (`_11172026-195`) was a real 4-page PDF ("2026 Nov Agenda Planning Board.pdf"), so not all items are .docx. Listing now shows Jan-Nov 2026 (Jan-May still not in DB). Oct 27 minutes not yet posted.
+
 ## Open items for later
 
 - Confirm whether *all* entries in this town's Agenda Center are `.docx`,

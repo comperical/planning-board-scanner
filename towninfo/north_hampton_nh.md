@@ -16,6 +16,14 @@ Committee) agendas are listed under the same Planning Board section; they
 have not been ingested in prior scans. Planning Board hub is now
 `/432/Planning-Board`. The notes below are historical.
 
+Scan 2026-11-16 note: the /agendacenter page lists all boards expanded
+(incl. LBH/Little Boars Head Planning Board and ZBA, which are not North
+Hampton PB). Filter rows by text "Planning Board PH/WS/Public Hearing/Agenda".
+Minutes link is `/AgendaCenter/ViewFile/Minutes/_MMDDYYYY-id` (downloaded
+file name is lowercased/hyphenated, e.g. `pb-minutes-11032026.pdf`). Some
+meetings have duplicate rows (two ids per date). Packet link
+`?packet=true` exists for 11/17 PH.
+
 ## Platform notes
 
 - Site: `https://www.northhampton-nh.gov` (hyphenated domain —
