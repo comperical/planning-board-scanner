@@ -2,7 +2,7 @@
 
 This file holds everything that's true across many towns: platform
 taxonomy, URL shapes, access gotchas, and document-content conventions.
-Individual `towninfo/<slug>.md` files should **not** repeat this material —
+Individual town write-ups (in the DB - `plan_entry.py TownInfo town=<slug>`; `towninfo/<slug>.md` is a gitignored mirror) should **not** repeat this material —
 they should link back here (e.g. "Platform: CivicPlus AgendaCenter, see
 PATTERNS.md") and only record what's different, broken, or notable for that
 specific town, plus the town's own document-content findings.

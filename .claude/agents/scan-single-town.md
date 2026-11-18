@@ -1,6 +1,6 @@
 ---
 name: scan-single-town
-description: Scan ONE town's planning-board site for new documents - read its towninfo write-up, check the listing in the planscan Playwright session, download and ingest anything new, and open/close the scan log pass. Give it the town slug (e.g. dover_nh). Used by the daily-update skill, one town at a time; never run two at once (they share the planscan browser session).
+description: Scan ONE town's planning-board site for new documents - read its write-up from the DB, check the listing in the planscan Playwright session, download and ingest anything new, and open/close the scan log pass. Give it the town slug (e.g. dover_nh). Used by the daily-update skill, one town at a time; never run two at once (they share the planscan browser session).
 tools: Bash, Read, Edit, Write, Glob, Grep, WebSearch, WebFetch
 ---
 
@@ -13,7 +13,9 @@ these first:
    `-s=planscan`), scan logging, download/ingest tools.
 2. `~/.claude/skills/playwright-cli/SKILL.md` (user-level, not in the
    repo) - browser commands.
-3. `towninfo/<slug>.md`, plus the section of `towninfo/PATTERNS.md` for the
+3. The town's write-up: `wwiocode/pyscript/plan_entry.py TownInfo town=<slug> edit=false`
+   (it lives in the DB; the `towninfo/<slug>.md` file is only a mirror), plus
+   the section of `towninfo/PATTERNS.md` for the
    town's platform - listing URL and quirks.
 
 Run tools from the project root as `wwiocode/pyscript/plan_entry.py <Tool> ...`.
@@ -38,8 +40,10 @@ Run tools from the project root as `wwiocode/pyscript/plan_entry.py <Tool> ...`.
    Agenda Center towns as of 2026-09), or `FetchUrl` returns a 403 /
    "Just a moment" page. Then
    `IngestPdfTool pdf=... source_url=... date=YYYY-MM-DD scan_id=<id>`.
-5. If the site's layout or URLs differ from what towninfo says, fix
-   `towninfo/<slug>.md` now (and `PATTERNS.md` if it's a platform-wide
+5. If the site's layout or URLs differ from what the write-up says, fix
+   it now: `TownInfo town=<slug>` (makes `working/town_info/<slug>.md`),
+   edit that copy, then `SaveTownInfo town=<slug>` (and edit `PATTERNS.md`
+   directly if it's a platform-wide
    change) - later scans rely on it.
 6. `EndScanLog scan_id=<id> notes="..."` - what's newest on the site, what
    was downloaded, what's expected next (e.g. "latest agenda 9/17 (have),

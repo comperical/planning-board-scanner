@@ -20,7 +20,8 @@ prefixes, matched against the **whole** command string:
 - `wwiocode/pyscript/plan_entry.py ...` (run from the project root)
 
 Plus `WebSearch`, `WebFetch`, and Read/Edit/Write anywhere under
-`working/` and `towninfo/`.
+`working/` and `towninfo/` (but town write-ups are edited through the DB
+tools - see "Town write-ups" below).
 
 Because the match is against the entire command, **never chain, pipe, or
 combine commands** - no `|`, `&&`, `;`, or command substitution tacked onto
@@ -58,16 +59,47 @@ rather than working around it.
 
 ## Repo layout
 
-- `towninfo/<town>.md` - one write-up per town: platform/CMS, bot-protection
-  behavior, the exact URL structure for agendas/minutes, and content notes.
-  Write one of these for every new town investigated (see existing files for
-  the expected level of detail: `rochester_nh.md`, `dover_nh.md`).
+- Town write-ups - one per town: platform/CMS, bot-protection behavior,
+  the exact URL structure for agendas/minutes, and content notes. They live
+  in the DB (`town_info` table), not in git - see "Town write-ups" below.
+  Write one for every new town investigated (see `dover_nh` or
+  `rochester_nh` for the expected level of detail).
+- `towninfo/<town>.md` - a gitignored, read-only mirror of each town's
+  current write-up, rewritten on every save. Don't edit these files.
+- `towninfo/PATTERNS.md` and `towninfo/mvp_town_list.md` - shared notes
+  across all towns, and the target town list. These stay in git and are
+  edited directly as files.
 - `working/` - gitignored scratch area for downloaded documents.
   - `working/<town>/` - raw PDFs downloaded from that town's site.
   - `working/TARGET.pdf`, `working/OUTPUT.txt`, `working/OUTPUT_PAGES/` -
     the fixed, hardcoded input/output paths for the PDF analysis tools below.
 - `wwiocode/pyscript/plan_entry.py` + `plan_util.py` - the tool entry point
   and its implementation.
+
+## Town write-ups
+
+Each town's write-up is stored in the DB, with every saved version kept.
+Read and edit it only through these tools:
+
+```bash
+wwiocode/pyscript/plan_entry.py TownInfo town=dover_nh
+# prints the write-up and copies it to working/town_info/dover_nh.md
+wwiocode/pyscript/plan_entry.py TownInfo town=dover_nh edit=false
+# just prints it, no working copy
+wwiocode/pyscript/plan_entry.py SaveTownInfo town=dover_nh
+# saves working/town_info/dover_nh.md as the new version, updates the mirror, deletes the copy
+```
+
+To change a write-up, run `TownInfo`, edit `working/town_info/<slug>.md`
+with the Edit tool, then run `SaveTownInfo`. For a brand-new town, Write
+`working/town_info/<slug>.md` from scratch, then `SaveTownInfo` (it
+creates the town row). `TownInfo` refuses if a working copy already
+exists, since that means unsaved edits: save it or delete it first.
+
+`ImportTownInfo [town=<slug>]` loads `towninfo/<slug>.md` files into the
+DB. This was the one-time migration; it skips files that match the DB.
+`ExportTownInfo [town=<slug>]` rewrites the mirror files from the DB, e.g.
+on a fresh checkout.
 
 ## Logging a scan pass
 
@@ -138,8 +170,9 @@ playwright-cli -s=planscan click e15
 
 Check `playwright-cli -s=planscan list` first if unsure whether the session
 is already open. Navigate the town's site to find its planning board's
-agenda/minutes archive. Things to establish and write down in
-`towninfo/<town>.md`:
+agenda/minutes archive. Things to establish and write down in the town's
+write-up (`working/town_info/<town>.md`, then `SaveTownInfo` - see "Town
+write-ups" above):
 
 - What CMS/platform the site runs (CivicPlus, a custom site + a document
   management system like Treeno, etc).

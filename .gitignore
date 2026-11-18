@@ -223,3 +223,11 @@ __marimo__/
 # Playwright CLI snapshots/logs
 .playwright-cli/
 .DS_Store
+
+# Town write-ups live in the DB (town_info table); towninfo/<slug>.md files
+# are a local mirror. Shared notes stay tracked.
+/towninfo/*.md
+!/towninfo/PATTERNS.md
+!/towninfo/mvp_town_list.md
+
+# Working copies for SaveTownInfo are under /working/ (already ignored)

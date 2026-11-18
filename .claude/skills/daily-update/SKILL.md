@@ -45,15 +45,16 @@ first. It's the same rule as the report's "still due" count, so a
 complete run leaves that at zero. Scan all the towns it lists - don't add
 more or stop short mid-run. If it lists none, go straight to step 2.
 
-Also note any "towninfo write-up(s) with no town row" it lists - those are
-new towns that have never been scanned; include them.
+Brand-new towns (saved with `SaveTownInfo` but never scanned) show up in
+the list as "never scanned". If it warns about towninfo files not in
+the DB, run `ImportTownInfo` first and re-run `NextToScan`.
 
 For each town in the list, in order, **one at a time** (never in
 parallel - they share the `planscan` browser session and the DB), launch
 the **`scan-single-town`** agent (Agent tool,
 `subagent_type: "scan-single-town"`) with the prompt `Scan town <slug>`.
-It runs in a fresh context: reads the towninfo write-up, opens/reuses the
-browser session, downloads and ingests new files, fixes towninfo if the
+It runs in a fresh context: reads the town's write-up from the DB, opens/reuses the
+browser session, downloads and ingests new files, fixes the write-up if the
 site changed, and opens and closes the scan log pass itself. Don't do the
 scan work yourself in the main context.
 

@@ -5,7 +5,7 @@ Concord/Manchester line (nothing further west than that), south to the MA
 border, east to the seacoast/Maine border, north to the towns just south of
 Lake Winnipesaukee.
 
-Status legend: ✅ researched (`towninfo/<slug>.md` exists) · ⬜ not yet started.
+Status legend: ✅ researched (write-up in the DB, mirrored to `towninfo/<slug>.md`) · ⬜ not yet started.
 
 **See `PATTERNS.md` for shared access patterns** (platform taxonomy, URL
 shapes, access gotchas, document-content conventions) common across many
@@ -97,7 +97,7 @@ specific town.
 **Totals: 69 of 69 towns on the list — MVP list complete.** Every town in
 the southeastern NH scope (Seacoast, Rockingham, Strafford, the
 Manchester/Concord areas, and Belknap County south of Winnipesaukee) has
-now been researched, each with a `towninfo/<slug>.md` write-up covering
+now been researched, each with a write-up (DB `town_info`, mirrored to `towninfo/<slug>.md`) covering
 platform, URL structure, and a sample-document content check.
 
 **Rollinsford, Pelham, and Epsom access was fully resolved 2026-09-15**

@@ -232,6 +232,97 @@ class EndScanLogTool:
         print(f"Closed scan_log {scan_id}" + (f": {notes}" if notes else ""))
 
 
+class TownInfoTool:
+    """Show a town's write-up - its platform, bot-protection behavior,
+    agenda/minutes URL structure and quirks, i.e. the instructions for
+    scanning it. Write-ups live in the DB (town_info table, see plan_db.py);
+    towninfo/<slug>.md is only a gitignored mirror. Prints the current text
+    and also copies it to working/town_info/<slug>.md, the copy to edit if
+    the write-up needs fixing - then run SaveTownInfo. Refuses if that
+    working copy already exists (unsaved edits): save or delete it first.
+    Pass edit=false to just print without making the working copy.
+
+    Args: town=<slug>  [edit=false]
+    """
+
+    def run_op(self, argmap):
+        town = argmap.getStr("town", "")
+        edit = argmap.getBit("edit", True)
+        assert town, "town=<slug> is required"
+
+        conn = DB.get_connection()
+        if edit:
+            path, info_md, saved_at, count = DB.checkout_town_info(conn, town)
+            where = f"; editable copy at {path.relative_to(DB.PROJECT_ROOT)}"
+        else:
+            current = DB.get_town_info(conn, town)
+            assert current, f"No write-up for {town} in the DB"
+            info_md, saved_at, count = current
+            where = ""
+        print(f"# Write-up for {town} (saved {saved_at} UTC, version {count}{where})")
+        print()
+        print(info_md)
+
+
+class SaveTownInfoTool:
+    """Save working/town_info/<slug>.md as the town's new write-up in the
+    DB (a new town_info version - older ones are kept), rewrite the
+    towninfo/<slug>.md mirror, and delete the working copy. For a town
+    being researched for the first time, Write working/town_info/<slug>.md
+    from scratch and run this; it creates the town row if needed. Saving
+    text identical to the current version adds no new version.
+
+    Args: town=<slug>
+    """
+
+    def run_op(self, argmap):
+        town = argmap.getStr("town", "")
+        assert town, "town=<slug> is required"
+
+        conn = DB.get_connection()
+        newid = DB.sync_town_info_from_file(conn, town)
+        if newid:
+            print(f"Saved write-up for {town} (town_info {newid}); towninfo/{town}.md updated")
+        else:
+            print(f"Write-up for {town} unchanged - nothing new saved")
+
+
+class ImportTownInfoTool:
+    """Load towninfo/<slug>.md files into the DB's town_info table - the
+    one-time migration from files to DB, also usable to pull in a file
+    edited by hand. Only town-named files (e.g. dover_nh.md) are imported;
+    shared notes like PATTERNS.md stay as files. A file identical to the
+    town's current DB version is skipped. Creates missing town rows.
+
+    Args: [town=<slug>]  (default: every town file in towninfo/)
+    """
+
+    def run_op(self, argmap):
+        town = argmap.getStr("town", "")
+
+        conn = DB.get_connection()
+        imported, unchanged = DB.import_town_info(conn, [town] if town else None)
+        print(f"Imported {len(imported)} write-up(s), {len(unchanged)} already current")
+        for slug in imported:
+            print(f"  imported  {slug}")
+
+
+class ExportTownInfoTool:
+    """Rewrite towninfo/<slug>.md from each town's current DB write-up, so
+    the on-disk mirror matches the DB (e.g. on a fresh checkout, since
+    towninfo/<slug>.md files are gitignored). Overwrites those files.
+
+    Args: [town=<slug>]  (default: every town with a write-up)
+    """
+
+    def run_op(self, argmap):
+        town = argmap.getStr("town", "")
+
+        conn = DB.get_connection()
+        written = DB.export_town_info(conn, [town] if town else None)
+        print(f"Wrote {len(written)} file(s) to towninfo/")
+
+
 class CreateProjectTool:
     """Create a new row in the projects table (a real development spotted
     by hand from one or more documents - see plan_db.py) and print its id.
@@ -644,9 +735,9 @@ class NextToScanTool:
     recent *good* scan pass (alpha_time_est). A pass only counts as good if
     it was closed with EndScanLog and its notes don't start with "FAILED" -
     so a town whose site was down or blocked comes straight back up next
-    time. The scan-side counterpart of NextToAnalyze. Also lists
-    towninfo/<slug>.md write-ups that have no town row in the DB yet, since
-    those have never been scanned either.
+    time. The scan-side counterpart of NextToAnalyze. Also warns about
+    towns with no write-up in the DB (town_info), and towninfo/<slug>.md
+    files that were never imported into it (run ImportTownInfo).
 
     Args: [limit=<n>]  (default 10; 0 = all towns)
           [due_days=<n>]  (only towns whose last good scan is at least n days old; default 0 = no filter)
@@ -684,14 +775,19 @@ class NextToScanTool:
             rows = [r for r in rows if r[3] is None or r[3] >= due_days - 0.25]
         rows = [(slug, last, count, None if days is None else int(days)) for slug, last, count, days in rows]
 
-        infodir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "towninfo")
-        # Only <town>_<st>.md files - skips non-town notes like PATTERNS.md
-        missing = sorted(fname[:-3] for fname in os.listdir(infodir)
-                         if re.fullmatch(r"[a-z_]+_[a-z]{2}\.md", fname) and fname[:-3] not in knownset)
+        withinfo = {r[0] for r in conn.execute(
+            "SELECT DISTINCT t.slug FROM town t JOIN town_info i ON i.town_id = t.id")}
+        noinfo = sorted(knownset - withinfo)
+        unimported = [slug for slug in DB.town_info_file_slugs() if slug not in withinfo]
 
-        if missing:
-            print(f"{len(missing)} towninfo write-up(s) with no town row in the DB (never scanned):")
-            for slug in missing:
+        if unimported:
+            print(f"{len(unimported)} towninfo/<slug>.md file(s) not in the DB - run ImportTownInfo:")
+            for slug in unimported:
+                print(f"  {slug}")
+            print()
+        if noinfo:
+            print(f"{len(noinfo)} town(s) with no write-up in the DB:")
+            for slug in noinfo:
                 print(f"  {slug}")
             print()
 

@@ -62,6 +62,17 @@ PROJECT_EDIT_DIR = WORK_DIR / "project_edit"
 # truth for which tags exist.
 PROJECT_TAGS_PATH = WORK_DIR.parent / "PROJECT_TAGS.md"
 
+# Town write-ups. The DB's town_info table is the source of truth;
+# towninfo/<slug>.md is a gitignored mirror of each town's current version
+# (rewritten on every save, and by the ExportTownInfo tool). To edit one,
+# the TownInfo tool writes the current text to working/town_info/<slug>.md,
+# you edit that copy, and SaveTownInfo stores it as a new version. Shared,
+# non-town notes in towninfo/ (PATTERNS.md, mvp_town_list.md) stay in git and
+# are not in the DB - only files named like a town slug are.
+TOWN_INFO_DIR = PROJECT_ROOT / "towninfo"
+TOWN_INFO_EDIT_DIR = WORK_DIR / "town_info"
+TOWN_SLUG_RE = re.compile(r"^[a-z_]+_[a-z]{2}$")
+
 # Tag groups (the "### N. ..." sections of PROJECT_TAGS.md) that must have
 # exactly one tag on every tagged project.
 EXACTLY_ONE_TAG_GROUPS = {1: "sector"}
@@ -85,9 +96,24 @@ PROJECT_STATUS = {
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS town (
     id                  INTEGER PRIMARY KEY,
-    slug                TEXT NOT NULL UNIQUE,  -- e.g. "dover_nh", matches working/<slug>/ and towninfo/<slug>.md
+    slug                TEXT NOT NULL UNIQUE,  -- e.g. "dover_nh", matches working/<slug>/ and its town_info write-up
     name                TEXT,                  -- e.g. "Dover"
     state               TEXT                   -- e.g. "NH"
+);
+
+-- Each town's write-up (markdown): platform/CMS, bot-protection behavior,
+-- agenda/minutes URL structure, content notes - the instructions a scan
+-- pass follows. Append-only: every save adds a row, and a town's CURRENT
+-- write-up is its row with the highest id, so older versions stay
+-- recoverable. Written by save_town_info (the SaveTownInfo/ImportTownInfo
+-- tools); towninfo/<slug>.md on disk is a gitignored mirror of the current
+-- version, not the source of truth.
+CREATE TABLE IF NOT EXISTS town_info (
+    id                  INTEGER PRIMARY KEY,
+    town_id             INTEGER NOT NULL REFERENCES town(id),
+    saved_at            TEXT NOT NULL,     -- UTC timestamp, datetime('now')
+    source              TEXT,              -- 'import' (from towninfo/<slug>.md) or 'edit' (from working/town_info/<slug>.md)
+    info_md             TEXT NOT NULL
 );
 
 -- One row per pass of scanning a town's site: visiting its pages and
@@ -234,6 +260,7 @@ CREATE TABLE IF NOT EXISTS contact_search_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_scan_log_town ON scan_log(town_id);
+CREATE INDEX IF NOT EXISTS idx_town_info_town ON town_info(town_id);
 CREATE INDEX IF NOT EXISTS idx_documents_town ON documents(town_id);
 CREATE INDEX IF NOT EXISTS idx_pages_document ON pages(document_id);
 CREATE INDEX IF NOT EXISTS idx_keyword_hits_document ON keyword_hits(document_id);
@@ -1190,6 +1217,130 @@ def run_query(path=QUERY_PATH, db_path=DB_PATH):
         return columns, cur.fetchall()
     finally:
         conn.close()
+
+
+def get_town_info(conn, slug):
+    """Return the current write-up for town slug as (info_md, saved_at,
+    version_count), or None if the town has none in the DB."""
+
+    row = conn.execute(
+        """
+        SELECT i.info_md, i.saved_at,
+               (SELECT COUNT(*) FROM town_info c WHERE c.town_id = i.town_id)
+        FROM town_info i JOIN town t ON t.id = i.town_id
+        WHERE t.slug = ?
+        ORDER BY i.id DESC LIMIT 1
+        """,
+        (slug,),
+    ).fetchone()
+    return tuple(row) if row else None
+
+
+def _check_town_slug(slug):
+    assert TOWN_SLUG_RE.match(slug or ""), \
+        f"Bad town slug {slug!r} - expected e.g. dover_nh or north_hampton_nh"
+
+
+def write_town_info_mirror(slug, info_md):
+    """Write info_md to towninfo/<slug>.md (the gitignored on-disk mirror)."""
+
+    _check_town_slug(slug)
+    TOWN_INFO_DIR.mkdir(parents=True, exist_ok=True)
+    (TOWN_INFO_DIR / f"{slug}.md").write_text(info_md, encoding="utf-8")
+
+
+def save_town_info(conn, slug, info_md, *, source="edit", mirror=True):
+    """Store info_md as the new current write-up for town slug (creating
+    the town row if needed) and, when mirror, rewrite towninfo/<slug>.md.
+    A save identical to the current version adds no row. Returns the new
+    town_info id, or None if unchanged."""
+
+    _check_town_slug(slug)
+    assert info_md and info_md.strip(), f"Empty write-up for {slug} - not saved"
+
+    current = get_town_info(conn, slug)
+    if current and current[0] == info_md:
+        newid = None
+    else:
+        town_id = get_or_create_town(conn, slug)
+        cur = conn.execute(
+            "INSERT INTO town_info (town_id, saved_at, source, info_md) VALUES (?, datetime('now'), ?, ?)",
+            (town_id, source, info_md),
+        )
+        newid = cur.lastrowid
+        conn.commit()
+
+    if mirror:
+        write_town_info_mirror(slug, info_md)
+    return newid
+
+
+def town_info_file_slugs():
+    """Slugs of the town write-up files in towninfo/ (skipping shared notes
+    like PATTERNS.md, whose names don't look like a town slug)."""
+
+    if not TOWN_INFO_DIR.is_dir():
+        return []
+    return sorted(p.stem for p in TOWN_INFO_DIR.glob("*.md") if TOWN_SLUG_RE.match(p.stem))
+
+
+def checkout_town_info(conn, slug):
+    """Copy town slug's current write-up to working/town_info/<slug>.md for
+    editing, and return (path, info_md, saved_at, version_count). Refuses to
+    overwrite an existing working copy (it may hold unsaved edits)."""
+
+    current = get_town_info(conn, slug)
+    assert current, f"No write-up for {slug} in the DB - write working/town_info/{slug}.md and run SaveTownInfo"
+
+    path = TOWN_INFO_EDIT_DIR / f"{slug}.md"
+    assert not path.exists(), \
+        f"{path.relative_to(PROJECT_ROOT)} already exists (unsaved edits?) - run SaveTownInfo town={slug}, or delete it"
+    TOWN_INFO_EDIT_DIR.mkdir(parents=True, exist_ok=True)
+    path.write_text(current[0], encoding="utf-8")
+    return (path,) + current
+
+
+def sync_town_info_from_file(conn, slug):
+    """Save working/town_info/<slug>.md as town slug's new write-up (see
+    save_town_info), then delete that working copy - the same convention as
+    project_edit/. Returns the new town_info id, or None if unchanged."""
+
+    _check_town_slug(slug)
+    path = TOWN_INFO_EDIT_DIR / f"{slug}.md"
+    info_md = read_input(path)
+    newid = save_town_info(conn, slug, info_md + "\n", source="edit")
+    path.unlink()
+    return newid
+
+
+def import_town_info(conn, slugs=None):
+    """Import towninfo/<slug>.md files into town_info (all town files, or
+    just slugs). A file identical to the town's current DB version adds
+    nothing. Returns (imported, unchanged) lists of slugs."""
+
+    imported, unchanged = [], []
+    for slug in (slugs or town_info_file_slugs()):
+        path = TOWN_INFO_DIR / f"{slug}.md"
+        assert path.is_file(), f"{path.relative_to(PROJECT_ROOT)} not found"
+        newid = save_town_info(conn, slug, path.read_text(encoding="utf-8"), source="import", mirror=False)
+        (imported if newid else unchanged).append(slug)
+    return imported, unchanged
+
+
+def export_town_info(conn, slugs=None):
+    """Rewrite towninfo/<slug>.md from each town's current DB write-up (all
+    towns that have one, or just slugs). Returns the slugs written."""
+
+    if slugs is None:
+        slugs = [r[0] for r in conn.execute(
+            "SELECT DISTINCT t.slug FROM town t JOIN town_info i ON i.town_id = t.id ORDER BY t.slug")]
+    written = []
+    for slug in slugs:
+        current = get_town_info(conn, slug)
+        assert current, f"No write-up for {slug} in the DB"
+        write_town_info_mirror(slug, current[0])
+        written.append(slug)
+    return written
 
 
 def read_input(path, *, as_json=False):
